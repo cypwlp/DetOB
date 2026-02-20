@@ -9,6 +9,7 @@ namespace OB.ViewModels.Dialogs
 {
     public class LoginViewModel : BindableBase, IDialogAware
     {
+        private readonly IDialogService _dialogService;
         private string _userName;
         private string _password;
 
@@ -24,6 +25,15 @@ namespace OB.ViewModels.Dialogs
             set => SetProperty(ref _password, value);
         }
 
+        public LoginViewModel(IDialogService dialogService)
+        {
+            _dialogService = dialogService;
+
+            // 从设置中加载默认用户名
+            var settings = OB.Default;
+            UserName = settings.mUsername;
+        }
+
         public DialogCloseListener RequestClose { get; private set; }
 
         public string Title => "用户登录";
@@ -36,42 +46,49 @@ namespace OB.ViewModels.Dialogs
 
         private bool CanLogin() => !string.IsNullOrWhiteSpace(UserName) && !string.IsNullOrWhiteSpace(Password);
 
-        public DelegateCommand LoginCommand => new DelegateCommand(Login, CanLogin)
+        public DelegateCommand LoginCommand => new DelegateCommand(async () => await LoginAsync(), CanLogin)
             .ObservesProperty(() => UserName)
             .ObservesProperty(() => Password);
 
-        private async void Login()
+        private async Task LoginAsync()
         {
-            var dbtools = new DBTools();
-            bool success = await Task.Run(() => dbtools.Initialize(UserName, Password));
+            var settings = OB.Default;
+            string server = settings.mServer;
+            string database = settings.mDatabase;
+
+            // 根据服务器地址判断本地/远程（参照 VB.NET 逻辑）
+            bool isLocal = server.StartsWith("192.168.") || server.StartsWith("10.");
+
+            var dbtools = new DBTools(server, isLocal);
+            bool success = await dbtools.InitializeAsync(UserName, Password, database);
+
             if (success)
             {
-                // 登录成功，关闭对话框并返回 OK 结果
-                RequestClose.Invoke(new DialogParameters(), ButtonResult.OK);
+                var parameters = new DialogParameters();
+                parameters.Add("dbtools", dbtools);
+                RequestClose.Invoke(parameters, ButtonResult.OK);
             }
             else
             {
-                // 登录失败：可以显示错误提示（可选）
-                // 例如使用 IDialogService 显示一个消息框（需要注入 IDialogService）
-                // 这里简单处理：不做任何操作，让用户继续输入
+                // 登录失败，可在此弹出错误提示（需要消息对话框服务）
+                // 这里简单处理：不清空密码，让用户重试
             }
         }
 
         public DelegateCommand CancelCommand => new DelegateCommand(Cancel);
-
-        private void Cancel()
-        {
-            // 用户点击取消，关闭对话框并返回 Cancel 结果
-            RequestClose.Invoke(null, ButtonResult.Cancel);
-        }
+        private void Cancel() => RequestClose.Invoke(null, ButtonResult.Cancel);
 
         public DelegateCommand ShowSetCommand => new DelegateCommand(ShowSet);
-
         private void ShowSet()
         {
-            // 如果需要打开设置窗口，可以在这里实现
-            // 可以通过 RequestClose 触发一个自定义结果，然后在外部处理
-            // 或者注入 IDialogService 来打开另一个对话框
+            _dialogService.ShowDialog("SetUrl", null, result =>
+            {
+                if (result.Result == ButtonResult.OK)
+                {
+                    // 更新用户名输入框为设置中保存的默认用户名
+                    UserName = OB.Default.mUsername;
+                }
+            });
         }
     }
 }

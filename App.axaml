@@ -2,17 +2,18 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="OB.App"
              xmlns:converters="using:OB.Tools.Converters"
+             xmlns:themes="clr-namespace:Material.Styles.Themes;assembly=Material.Styles"
              RequestedThemeVariant="Default">
-    
+   
     <Application.Resources>
         <converters:BoolToSizeConverter x:Key="BoolToSizeConverter"/>
         <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter"/>
         <converters:BoolToMenuIconConverter x:Key="BoolToMenuIconConverter"/>
         <converters:ObjectEqualityConverter x:Key="ObjectEqualityConverter"/>
     </Application.Resources>
-    
+   
     <Application.Styles>
-        <FluentTheme />
+        <themes:MaterialTheme BaseTheme="Dark" PrimaryColor="Indigo" SecondaryColor="Amber" />
     </Application.Styles>
-    
+   
 </Application>

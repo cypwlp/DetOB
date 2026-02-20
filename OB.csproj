@@ -8,6 +8,13 @@
     <PackageIcon>favicon.ico</PackageIcon>
   </PropertyGroup>
   <ItemGroup>
+    <AvaloniaXaml Remove="Views\Dialogs\SetUrl.axaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="ViewModels\Dialogs\SetUrlViewModel.cs" />
+    <Compile Remove="Views\Dialogs\SetUrl.axaml.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="favicon.ico" />
   </ItemGroup>
   <ItemGroup>
@@ -27,6 +34,9 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="Material.Avalonia" Version="3.13.4" />
+    <PackageReference Include="Material.Avalonia.DataGrid" Version="3.13.4" />
+    <PackageReference Include="Material.Avalonia.Dialogs" Version="3.13.4" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
     <PackageReference Include="Prism.DryIoc.Avalonia" Version="9.0.537.11130" />

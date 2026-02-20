@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using OB.Tools;
 using OB.ViewModels;
 using OB.ViewModels.Dialogs;
 using OB.Views;
@@ -9,7 +10,7 @@ using OB.Views.Dialogs;
 using Prism.Dialogs;
 using Prism.DryIoc;
 using Prism.Ioc;
-// ... 其他 using
+using System;
 
 namespace OB
 {
@@ -19,7 +20,9 @@ namespace OB
 
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
+            // 注册登录对话框
             containerRegistry.RegisterDialog<Login, LoginViewModel>();
+            // 注册主窗口导航
             containerRegistry.RegisterForNavigation<MainWin, MainViewModel>();
         }
 
@@ -34,7 +37,7 @@ namespace OB
 
         private void StartWithLoginAsync(IClassicDesktopStyleApplicationLifetime desktopLifetime)
         {
-            // 1. 创建一个极小的隐藏窗口作为临时所有者
+            // 创建临时隐藏窗口作为登录对话框的所有者
             var splashWindow = new Window
             {
                 Width = 1,
@@ -46,26 +49,37 @@ namespace OB
                 ShowActivated = false,
                 IsHitTestVisible = false
             };
-            splashWindow.Show();               // 必须显示才能成为有效所有者
-            desktopLifetime.MainWindow = splashWindow; // 暂时设置为应用主窗口
+            splashWindow.Show();
+            desktopLifetime.MainWindow = splashWindow;
 
             var dialogService = Container.Resolve<IDialogService>();
-            var parameters = new DialogParameters();
 
-            // 2. 显示登录对话框，owner 为 splashWindow
-            dialogService.ShowDialog("Login", parameters, result =>
+            dialogService.ShowDialog("Login", null, result =>
             {
                 if (result.Result == ButtonResult.OK)
                 {
-                    // 登录成功：创建真实主窗口并显示
-                    var mainWin = Container.Resolve<MainWin>();
-                    mainWin.Show();
-                    desktopLifetime.MainWindow = mainWin; // 更新主窗口引用
-                    splashWindow.Close();                   // 关闭临时窗口
+                    // 登录成功，获取传递的 DBTools 实例
+                    if (result.Parameters.TryGetValue<DBTools>("dbtools", out var dbtools))
+                    {
+                        var mainWin = Container.Resolve<MainWin>();
+                        if (mainWin.DataContext is MainViewModel vm)
+                        {
+                           // vm.DBTools = dbtools; // 需要在 MainViewModel 中定义该属性
+                        }
+                        mainWin.Show();
+                        desktopLifetime.MainWindow = mainWin;
+                        splashWindow.Close();
+                    }
+                    else
+                    {
+                        // 未获取到 dbtools，异常情况，直接退出
+                        splashWindow.Close();
+                        desktopLifetime.Shutdown();
+                    }
                 }
                 else
                 {
-                    // 登录取消或失败：关闭临时窗口并退出应用
+                    // 用户取消或关闭登录对话框，退出应用
                     splashWindow.Close();
                     desktopLifetime.Shutdown();
                 }
