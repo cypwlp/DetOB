@@ -1,4 +1,5 @@
-﻿using Prism.Mvvm;
+﻿using Material.Icons;
+using Prism.Mvvm;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,11 +10,11 @@ namespace OB.Models
 {
     public class LeftMenuItem:BindableBase
     {
-        private string _icon;
-        private string _title;
-        private string _viewName;
+        private MaterialIconKind _icon;
+        private string? _title;
+        private string? _viewName;
 
-        public string Icon
+        public MaterialIconKind Icon
         {
             get => _icon;
             set => SetProperty(ref _icon, value);

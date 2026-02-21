@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Material.Icons;
 using OB.Models;
 using Prism.Commands;
 using Prism.Mvvm;
@@ -33,8 +34,8 @@ namespace OB.ViewModels
         {
             MenuItems = new ObservableCollection<LeftMenuItem>
             {
-                new LeftMenuItem { Icon = "🏠", Title = "首頁", ViewName = "Home" },
-                new LeftMenuItem { Icon = "🏠", Title = "設置", ViewName = "Set" }
+                new LeftMenuItem { Icon = MaterialIconKind.Home, Title = "首頁", ViewName = "Home" },
+                new LeftMenuItem { Icon = MaterialIconKind.CogOutline, Title = "設置", ViewName = "Set" }
             };
 
             ToggleMenuCommand = new DelegateCommand(() => IsMenuExpanded = !IsMenuExpanded);

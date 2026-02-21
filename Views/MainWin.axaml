@@ -21,18 +21,20 @@
         <controls:SnackbarHost HostName="Root">
             <!-- 左侧导航抽屉 -->
             <controls:NavigationDrawer LeftDrawerOpened="{Binding IsMenuExpanded, Mode=TwoWay}"
-                                       Classes="permanent">
+                                       Classes="permanent"
+                                       LeftDrawerWidth="170"
+                                       >
                 <!-- 左侧抽屉内容：菜单 + 头部信息 -->
-                <controls:NavigationDrawer.LeftDrawerContent>
-                    <ScrollViewer>
-                        <StackPanel>
+                <controls:NavigationDrawer.LeftDrawerContent >
+                    <ScrollViewer Width="170">
+                        <StackPanel Width="170">
                             <!-- 应用信息区域（图标、名称） -->
                             <controls:ColorZone Mode="Accent" Height="120">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Image Width="64" Height="64"
                                            Source="avares://OB/Assets/app-icon.png"
                                            Margin="0,0,0,8" />
-                                    <TextBlock Classes="Headline6" Text="OB 管理系统"
+                                    <TextBlock Classes="Headline6" Text="OB 檢測系统"
                                                HorizontalAlignment="Center" />
                                 </StackPanel>
                             </controls:ColorZone>
@@ -41,6 +43,7 @@
                             <ListBox ItemsSource="{Binding MenuItems}"
                                      SelectedItem="{Binding SelectedMenuItem, Mode=TwoWay}"
                                      Background="Transparent"
+
                                      Classes="NoScroll">
                                 <ListBox.Styles>
                                     <!-- 菜单项样式：高度48，垂直居中，内边距16 -->

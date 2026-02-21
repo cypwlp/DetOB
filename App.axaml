@@ -4,6 +4,7 @@
              xmlns:dialogHostAvalonia="using:DialogHostAvalonia"
              xmlns:converters="using:OB.Tools.Converters"
              xmlns:themes="clr-namespace:Material.Styles.Themes;assembly=Material.Styles"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              RequestedThemeVariant="Default">
     <Application.Resources>
         <converters:BoolToSizeConverter x:Key="BoolToSizeConverter"/>
@@ -15,5 +16,6 @@
     <Application.Styles>
         <themes:MaterialTheme BaseTheme="Dark" PrimaryColor="Indigo" SecondaryColor="Amber" />
 		<StyleInclude Source="avares://DialogHost.Avalonia/Styles.xaml"/>
+<materialIcons:MaterialIconStyles />
     </Application.Styles>
 </Application>
