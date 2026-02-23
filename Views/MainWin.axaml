@@ -72,7 +72,7 @@ xmlns:ia="using:Avalonia.Xaml.Interactions.Core"
                                             <!-- 菜单标题 -->
                                             <TextBlock Text="{Binding Title}" />
                                         </StackPanel>
-                                    </DataTemplate>
+                                    </DataTemplate> 
                                 </ListBox.ItemTemplate>
                             </ListBox>
                         </StackPanel>
