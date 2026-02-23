@@ -21,6 +21,7 @@ namespace OB.ViewModels.Dialogs
         private RemoteService.LoginInfo logInfo;
         #endregion
 
+
         #region 屬性
 
         public LogUserInfo LogUser
