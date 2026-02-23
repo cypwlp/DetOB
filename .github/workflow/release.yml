@@ -3,93 +3,112 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'          # 只有打 tag 时才触发构建发布
+      - 'v*'           # 当推送 v1.0.0 这样的标签时触发
 
 jobs:
   build:
-    runs-on: ubuntu-latest   # Gitee 提供的 Linux 环境
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]   # 同时构建 Windows 和 macOS
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.x
+          dotnet-version: 8.0.x
 
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build for Windows (x64)
+      - name: Publish for current OS
         run: |
-          dotnet publish -c Release -r win-x64 --self-contained true \
-            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-            -o ./publish/win-x64
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            dotnet publish -c Release -o publish/win-x64 --self-contained false -r win-x64
+          else
+            dotnet publish -c Release -o publish/osx-x64 --self-contained false -r osx-x64
+          fi
+        shell: bash
 
-      - name: Build for macOS (x64)
-        run: |
-          dotnet publish -c Release -r osx-x64 --self-contained true \
-            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-            -o ./publish/osx-x64
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-x64-app
+          path: publish/win-x64/
 
-      - name: Build for macOS (ARM64)   # Apple Silicon 支持
-        run: |
-          dotnet publish -c Release -r osx-arm64 --self-contained true \
-            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-            -o ./publish/osx-arm64
+      - name: Upload macOS artifact
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: osx-x64-app
+          path: publish/osx-x64/
+
+  create_release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
       - name: Create ZIP packages
         run: |
-          cd publish
-          zip -r ../MyApp-win-x64.zip win-x64
-          zip -r ../MyApp-osx-x64.zip osx-x64
-          zip -r ../MyApp-osx-arm64.zip osx-arm64
-          cd ..
+          cd artifacts/win-x64-app && zip -r ../../OB-win-x64.zip . && cd ../..
+          cd artifacts/osx-x64-app && zip -r ../../OB-osx-x64.zip . && cd ../..
 
       - name: Generate appcast.xml
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}   # 提取版本号，例如 v1.2.3 -> 1.2.3
+          VERSION=${GITHUB_REF_NAME#v}   # 去除标签前的 'v'
           DATE=$(date -u +"%a, %d %b %Y %H:%M:%S GMT")
+          # 构建下载 URL（使用 GitHub Release 的资产链接）
+          WIN_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/OB-win-x64.zip"
+          OSX_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/OB-osx-x64.zip"
 
-          # 定义下载链接（使用 Gitee Releases 的附件 URL）
-          WIN_URL="https://gitee.com/你的用户名/你的仓库/releases/download/v${VERSION}/MyApp-win-x64.zip"
-          OSX_X64_URL="https://gitee.com/你的用户名/你的仓库/releases/download/v${VERSION}/MyApp-osx-x64.zip"
-          OSX_ARM64_URL="https://gitee.com/你的用户名/你的仓库/releases/download/v${VERSION}/MyApp-osx-arm64.zip"
-
-          # 生成 appcast.xml（简化示例，实际应包含多个更新项）
           cat > appcast.xml <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
             <channel>
-              <title>MyApp 更新日志</title>
+              <title>Your App Updates</title>
               <item>
-                <title>版本 ${VERSION}</title>
-                <pubDate>${DATE}</pubDate>
-                <sparkle:version>${VERSION}</sparkle:version>
-                <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-                <description><![CDATA[更新内容说明（可从 CHANGELOG 中读取）]]></description>
-                <enclosure url="${WIN_URL}" sparkle:os="windows" length="0" type="application/octet-stream" />
-                <enclosure url="${OSX_X64_URL}" sparkle:os="macos" sparkle:architecture="x86_64" length="0" type="application/octet-stream" />
-                <enclosure url="${OSX_ARM64_URL}" sparkle:os="macos" sparkle:architecture="arm64" length="0" type="application/octet-stream" />
+                <title>Version $VERSION</title>
+                <pubDate>$DATE</pubDate>
+                <sparkle:version>$VERSION</sparkle:version>
+                <sparkle:releaseNotesLink>https://your-update-server.com/release-notes.html</sparkle:releaseNotesLink>
+                <enclosure url="$WIN_URL"
+                           sparkle:os="windows"
+                           sparkle:installerArguments="/SILENT"   # 如果需要静默安装参数，可以自定义
+                           length="$(stat -c%s OB-win-x64.zip)"
+                           type="application/zip" />
+                <enclosure url="$OSX_URL"
+                           sparkle:os="macos"
+                           length="$(stat -c%s OB-osx-x64.zip)"
+                           type="application/zip" />
               </item>
             </channel>
           </rss>
           EOF
 
-      - name: Create Release and Upload Assets
-        uses: gitee-actions/release-action@v1   # 使用 Gitee 的 release 插件
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
         with:
-          token: ${{ secrets.GITEE_TOKEN }}      # 需要在仓库设置中添加 Personal Access Token
+          name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: |
-            ## 更新内容
-            - 请在此填写更新日志
+          files: |
+            OB-win-x64.zip
+            OB-osx-x64.zip
+            appcast.xml
           draft: false
           prerelease: false
-          files: |
-            ./MyApp-win-x64.zip
-            ./MyApp-osx-x64.zip
-            ./MyApp-osx-arm64.zip
-            ./appcast.xml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
