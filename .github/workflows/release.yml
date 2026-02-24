@@ -25,21 +25,27 @@ jobs:
 
       - name: Publish for current OS
         run: |
-          # 從 tag 自動取得版本號 (v1.0.8 → 1.0.8)
           VERSION=${GITHUB_REF_NAME#v}
-          
+          echo "🚀 正在打包版本: $VERSION (Windows/macOS)"
+
           if [ "$RUNNER_OS" == "Windows" ]; then
-            dotnet publish -c Release -o publish/win-x64 \
-              --self-contained false -r win-x64 \
-              /p:Version=$VERSION \
-              /p:FileVersion=$VERSION.0 \
-              /p:AssemblyVersion=$VERSION.0
+            dotnet publish OB.csproj \
+              -c Release \
+              -o publish/win-x64 \
+              --self-contained false \
+              -r win-x64 \
+              -p:Version=$VERSION \
+              -p:FileVersion=$VERSION.0 \
+              -p:AssemblyVersion=$VERSION.0
           else
-            dotnet publish -c Release -o publish/osx-x64 \
-              --self-contained false -r osx-x64 \
-              /p:Version=$VERSION \
-              /p:FileVersion=$VERSION.0 \
-              /p:AssemblyVersion=$VERSION.0
+            dotnet publish OB.csproj \
+              -c Release \
+              -o publish/osx-x64 \
+              --self-contained false \
+              -r osx-x64 \
+              -p:Version=$VERSION \
+              -p:FileVersion=$VERSION.0 \
+              -p:AssemblyVersion=$VERSION.0
           fi
         shell: bash
 
