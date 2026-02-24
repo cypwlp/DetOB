@@ -5,6 +5,7 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="OB.Detect">
 	<Grid>
-		<TextBlock>OB I love ÓÐbb</TextBlock>
+		<TextBlock>OB I love bb</TextBlock>
+        <TextBlock>OB I love bb</TextBlock>
 	</Grid>
 </UserControl>
