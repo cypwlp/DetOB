@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Threading;
@@ -91,6 +92,16 @@ namespace OB.ViewModels
             }
         }
 
+        //private async void OnUpdateReadyToInstall(object? sender, EventArgs e)
+        //{
+        //    // 防止多次触发
+        //    App.UpdateReadyToInstall -= OnUpdateReadyToInstall;
+        //    var result = await ShowUpdateConfirmationDialog();
+        //    if (result)
+        //    {
+        //        App.InstallUpdate();
+        //    }
+        //}
         private async void OnUpdateReadyToInstall(object? sender, EventArgs e)
         {
             // 防止多次触发
@@ -98,6 +109,14 @@ namespace OB.ViewModels
             var result = await ShowUpdateConfirmationDialog();
             if (result)
             {
+                // 关闭主窗口，释放文件锁
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
+                {
+                    lifetime.MainWindow?.Close();
+                }
+                // 短暂等待窗口完全关闭
+                await Task.Delay(500);
+                // 执行更新
                 App.InstallUpdate();
             }
         }
