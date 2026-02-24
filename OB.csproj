@@ -1,87 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <PackageIcon>favicon.ico</PackageIcon>
-  </PropertyGroup>
-  <ItemGroup>
-    <AvaloniaXaml Remove="Views\Dialogs\SetUrl.axaml" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="ViewModels\Dialogs\SetUrlViewModel.cs" />
-    <Compile Remove="Views\Dialogs\SetUrl.axaml.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Remove="Assets\app-icon.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="favicon.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Assets\app-icon.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="C:\Users\20250923\Desktop\favicon.ico">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-	    <AvaloniaResource Include="Assets\**" />	  
-    <PackageReference Include="Avalonia" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
-    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.11">
-      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Dapper" Version="2.1.66" />
-    <PackageReference Include="Material.Avalonia" Version="3.13.4" />
-    <PackageReference Include="Material.Avalonia.DataGrid" Version="3.13.4" />
-    <PackageReference Include="Material.Avalonia.Dialogs" Version="3.13.4" />
-    <PackageReference Include="Material.Icons.Avalonia" Version="3.0.0" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
-    <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.0.4" />
-    <PackageReference Include="NetSparkleUpdater.UI.Avalonia" Version="3.0.4" />
-    <PackageReference Include="Prism.DryIoc.Avalonia" Version="9.0.537.11130" />
-    <PackageReference Include="ReactiveUI.Avalonia" Version="11.3.8" />
-	  <PackageReference Include="System.ServiceModel.Primitives" Version="8.0.0" />
-	  <PackageReference Include="System.ServiceModel.Http" Version="8.0.0" />
-	  <PackageReference Include="System.ServiceModel.NetTcp" Version="8.0.0" />
-	  <PackageReference Include="DialogHost.Avalonia" Version="0.10.4" />
-	  <PackageReference Include="Avalonia.Xaml.Interactivity" Version="11.3.0.6" />
-	  <PackageReference Include="Avalonia.Xaml.Interactions" Version="11.3.0.6" />
-  </ItemGroup>
-  <ItemGroup>
-    <AvaloniaXaml Update="App.axaml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </AvaloniaXaml>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Update="OB.Designer.cs">
-      <DesignTimeSharedInput>True</DesignTimeSharedInput>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>OB.settings</DependentUpon>
-    </Compile>
-    <Compile Update="Views\Dialogs\Login.axaml.cs">
-      <DependentUpon>Login.axaml</DependentUpon>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="System.ServiceModel.NetTcp" Version="8.*" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Update="OB.settings">
-      <Generator>SettingsSingleFileGenerator</Generator>
-      <LastGenOutput>OB.Designer.cs</LastGenOutput>
-    </None>
-  </ItemGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+		<PackageIcon>favicon.ico</PackageIcon>
+	</PropertyGroup>
+	<ItemGroup>
+		<AvaloniaXaml Remove="Views\Dialogs\SetUrl.axaml" />
+	</ItemGroup>
+	<ItemGroup>
+		<Compile Remove="ViewModels\Dialogs\SetUrlViewModel.cs" />
+		<Compile Remove="Views\Dialogs\SetUrl.axaml.cs" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Remove="Assets\app-icon.png" />
+	</ItemGroup>
+	<ItemGroup>
+		<Content Include="Assets/favicon.ico" />
+	</ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="Assets\app-icon.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</EmbeddedResource>
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="Assets/favicon.ico">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+	<ItemGroup>
+		<AvaloniaResource Include="Assets\**" />
+		<PackageReference Include="Avalonia" Version="11.3.11" />
+		<PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
+		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+		<PackageReference Include="Avalonia.Diagnostics" Version="11.3.11">
+			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="Dapper" Version="2.1.66" />
+		<PackageReference Include="Material.Avalonia" Version="3.13.4" />
+		<PackageReference Include="Material.Avalonia.DataGrid" Version="3.13.4" />
+		<PackageReference Include="Material.Avalonia.Dialogs" Version="3.13.4" />
+		<PackageReference Include="Material.Icons.Avalonia" Version="3.0.0" />
+		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
+		<PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.0.4" />
+		<PackageReference Include="NetSparkleUpdater.UI.Avalonia" Version="3.0.4" />
+		<PackageReference Include="Prism.DryIoc.Avalonia" Version="9.0.537.11130" />
+		<PackageReference Include="ReactiveUI.Avalonia" Version="11.3.8" />
+		<PackageReference Include="System.ServiceModel.Primitives" Version="8.0.0" />
+		<PackageReference Include="System.ServiceModel.Http" Version="8.0.0" />
+		<PackageReference Include="System.ServiceModel.NetTcp" Version="8.0.0" />
+		<PackageReference Include="DialogHost.Avalonia" Version="0.10.4" />
+		<PackageReference Include="Avalonia.Xaml.Interactivity" Version="11.3.0.6" />
+		<PackageReference Include="Avalonia.Xaml.Interactions" Version="11.3.0.6" />
+	</ItemGroup>
+	<ItemGroup>
+		<AvaloniaXaml Update="App.axaml">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</AvaloniaXaml>
+	</ItemGroup>
+	<ItemGroup>
+		<Compile Update="OB.Designer.cs">
+			<DesignTimeSharedInput>True</DesignTimeSharedInput>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>OB.settings</DependentUpon>
+		</Compile>
+		<Compile Update="Views\Dialogs\Login.axaml.cs">
+			<DependentUpon>Login.axaml</DependentUpon>
+		</Compile>
+	</ItemGroup>
+	<ItemGroup>
+		<None Update="OB.settings">
+			<Generator>SettingsSingleFileGenerator</Generator>
+			<LastGenOutput>OB.Designer.cs</LastGenOutput>
+		</None>
+	</ItemGroup>
 </Project>

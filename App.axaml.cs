@@ -2,6 +2,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using NetSparkleUpdater;
+using NetSparkleUpdater.Enums;
+using NetSparkleUpdater.Events;
+using NetSparkleUpdater.SignatureVerifiers;
 using OB.Models;
 using OB.Tools;
 using OB.ViewModels;
@@ -13,21 +17,28 @@ using Prism.DryIoc;
 using Prism.Ioc;
 using Prism.Navigation.Regions;
 using System;
+using System.Net;
+using System.Threading.Tasks;
 
 namespace OB
 {
     public partial class App : PrismApplication
     {
-        protected override AvaloniaObject CreateShell() => null;
+        private static SparkleUpdater? _sparkle;
+        private static bool _isUpdateReady = false;
+        private static AppCastItem? _updateItem;
+        private static string? _updateInstallerPath;
+        public static event EventHandler? UpdateReadyToInstall;
+        public static bool IsUpdateReady => _isUpdateReady;
+
+        protected override AvaloniaObject CreateShell() => null!;
 
         protected override void RegisterTypes(IContainerRegistry containerRegistry)
         {
-            // 注册登录对话框
             containerRegistry.RegisterDialog<Login, LoginViewModel>();
-            // 注册主窗口导航
             containerRegistry.RegisterForNavigation<MainWin, MainViewModel>();
-            containerRegistry.RegisterForNavigation<Home, HomeViewModel>();      // 对应 "Home"
-            containerRegistry.RegisterForNavigation<Settings, SettingsViewModel>(); // 对应 "Settings"
+            containerRegistry.RegisterForNavigation<Home, HomeViewModel>();
+            containerRegistry.RegisterForNavigation<Settings, SettingsViewModel>();
         }
 
         public override void OnFrameworkInitializationCompleted()
@@ -39,9 +50,60 @@ namespace OB
             base.OnFrameworkInitializationCompleted();
         }
 
+        private async Task CheckForUpdatesAsync()
+        {
+            try
+            {
+                string appcastUrl = "https://github.com/cypwlp/OB/releases/latest/download/appcast.xml";
+                _sparkle = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe))
+                {
+                    SecurityProtocolType = ServicePointManager.SecurityProtocol, // 使用系統默認
+                    UIFactory = null, // 無內建 UI
+                    RelaunchAfterUpdate = true // 更新後自動重啟
+                };
+
+                // 更新檢測 → 自動開始下載
+                _sparkle.UpdateDetected += async (sender, e) =>
+                {
+                    if (e.LatestVersion != null)
+                    {
+                        _updateItem = e.LatestVersion;
+                        await _sparkle.InitAndBeginDownload(_updateItem);
+                    }
+                };
+
+                // 下載完成 → 標記並觸發事件
+                _sparkle.DownloadFinished += (sender, path) =>
+                {
+                    _isUpdateReady = true;
+                    _updateInstallerPath = path;
+                    UpdateReadyToInstall?.Invoke(null, EventArgs.Empty);
+                };
+
+                // 靜默檢查更新（异步調用）
+                var updateInfo = await _sparkle.CheckForUpdatesQuietly();
+                if (updateInfo.Status == UpdateStatus.UpdateAvailable)
+                {
+                    // 事件會自動處理
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新檢查失敗: {ex}");
+            }
+        }
+
+        public static void InstallUpdate()
+        {
+            if (_sparkle != null && _updateItem != null && _updateInstallerPath != null)
+            {
+                _sparkle.InstallUpdate(_updateItem, _updateInstallerPath);
+            }
+        }
+
         private void StartWithLoginAsync(IClassicDesktopStyleApplicationLifetime desktopLifetime)
         {
-            // 创建临时隐藏窗口作为登录对话框的所有者
+            // 臨時隱藏窗口（作為登入對話框的所有者）
             var splashWindow = new Window
             {
                 Width = 1,
@@ -56,40 +118,37 @@ namespace OB
             splashWindow.Show();
             desktopLifetime.MainWindow = splashWindow;
 
-            var dialogService = Container.Resolve<IDialogService>();
+            // 後台開始更新檢查（不阻塞 UI）
+            _ = CheckForUpdatesAsync();
 
+            var dialogService = Container.Resolve<IDialogService>();
             dialogService.ShowDialog("Login", null, async result =>
             {
                 if (result.Result == ButtonResult.OK)
                 {
-                    // 登录成功，获取传递的 DBTools 实例
-                    if (result.Parameters.TryGetValue<RemoteDBTools>("dbtools", out var dbtools))
+                    if (result.Parameters.TryGetValue<RemoteDBTools>("dbtools", out var dbtools) &&
+                        result.Parameters.TryGetValue<LogUserInfo>("LogUser", out var LogUser))
                     {
-                        if (result.Parameters.TryGetValue<LogUserInfo>("LogUser", out var LogUser))
-                        {
-                            var mainWin = Container.Resolve<MainWin>();
-                            var vm = Container.Resolve<MainViewModel>();
-                            vm.LogUser = LogUser;
-                            vm.RemoteDBTools = dbtools;
-                            mainWin.DataContext = vm;
-                            var regionManager = Container.Resolve<IRegionManager>();
-                            RegionManager.SetRegionManager(mainWin, regionManager);
-                            mainWin.Show();
-                            desktopLifetime.MainWindow = mainWin;
-                            await vm.DefaultNavigateAsync();
-                            splashWindow.Close();
-                        }
+                        var mainWin = Container.Resolve<MainWin>();
+                        var vm = Container.Resolve<MainViewModel>();
+                        vm.LogUser = LogUser;
+                        vm.RemoteDBTools = dbtools;
+                        mainWin.DataContext = vm;
+                        var regionManager = Container.Resolve<IRegionManager>();
+                        RegionManager.SetRegionManager(mainWin, regionManager);
+                        mainWin.Show();
+                        desktopLifetime.MainWindow = mainWin;
+                        await vm.DefaultNavigateAsync();
+                        splashWindow.Close();
                     }
                     else
                     {
-                        // 未获取到 dbtools，异常情况，直接退出
                         splashWindow.Close();
                         desktopLifetime.Shutdown();
                     }
                 }
                 else
                 {
-                    // 用户取消或关闭登录对话框，退出应用
                     splashWindow.Close();
                     desktopLifetime.Shutdown();
                 }
