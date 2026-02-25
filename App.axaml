@@ -1,6 +1,7 @@
-<Application xmlns="https://github.com/avaloniaui"
+<prism:PrismApplication xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="OB.App"            
+             x:Class="OB.App"   
+             xmlns:prism="http://prismlibrary.com/"
              xmlns:dialogHostAvalonia="using:DialogHostAvalonia"
              xmlns:converters="using:OB.Tools.Converters"
              xmlns:themes="clr-namespace:Material.Styles.Themes;assembly=Material.Styles"
@@ -18,5 +19,8 @@
         <themes:MaterialTheme BaseTheme="Dark" PrimaryColor="Indigo" SecondaryColor="Amber" />
 		<StyleInclude Source="avares://DialogHost.Avalonia/Styles.xaml"/>
 <materialIcons:MaterialIconStyles />
+       <Style Selector="Window, UserControl">
+            <Setter Property="FontFamily" Value="Microsoft YaHei, Segoe UI, sans-serif" />
+        </Style>
     </Application.Styles>
-</Application>
+</prism:PrismApplication>

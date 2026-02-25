@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
-namespace OB;
+namespace OB.Views.Dialogs;
 
 public partial class UpdateDialog : UserControl
 {

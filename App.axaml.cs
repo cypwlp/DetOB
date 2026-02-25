@@ -40,6 +40,7 @@ namespace OB
             containerRegistry.RegisterForNavigation<Settings, SettingsViewModel>();
             containerRegistry.RegisterForNavigation<Detect, DetectViewModel>();
             containerRegistry.RegisterForNavigation<Process, ProcessViewModel>();
+            containerRegistry.RegisterDialog<UpdateDialog, UpdateViewModel>();
         }
 
         public override void OnFrameworkInitializationCompleted()
@@ -51,45 +52,44 @@ namespace OB
             base.OnFrameworkInitializationCompleted();
         }
 
-        /// <summary>
-        /// 初始化並檢查更新 (使用 NetSparkle 原生 UI)
-        /// </summary>
         private async Task CheckForUpdatesAsync()
         {
             try
             {
-                // 確保安全傳輸協議
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
-
                 string appcastUrl = @"https://github.com/cypwlp/OB/releases/latest/download/appcast.xml";
 
                 var assembly = Assembly.GetEntryAssembly();
-                string assemblyPath = System.Environment.ProcessPath ?? assembly?.Location ?? "";
+                string assemblyPath = Environment.ProcessPath ?? assembly?.Location ?? "";
 
-                // 【修正 1】：類名是 UIFactory 而不是 AvaloniaUIFactory
-                var guiFactory = new UIFactory();
-
-                // 2. 初始化 SparkleUpdater
+                // 注意：這裡不需要設定 UIFactory 了，因為我們要自己寫 UI
                 SparkleInstance = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe), assemblyPath)
                 {
-                    UIFactory = guiFactory,
                     RelaunchAfterUpdate = true,
-                    RestartExecutableName = "OB.exe"
+                    RestartExecutableName = "OB.exe",
+                    UserInteractionMode = UserInteractionMode.DownloadAndInstall
                 };
-               await SparkleInstance.StartLoop(true);
 
-                // 3. 背景檢查更新
+                // 1. 靜默檢查更新
                 var updateInfo = await SparkleInstance.CheckForUpdatesQuietly();
 
-                if (updateInfo.Status == UpdateStatus.UpdateAvailable && updateInfo.Updates != null)
+                if (updateInfo.Status == UpdateStatus.UpdateAvailable && updateInfo.Updates?.Count > 0)
                 {
-                    // 【修正 2】：傳入 List<AppCastItem> 而不是單個項
-                    var updatesList = new List<AppCastItem> { updateInfo.Updates[0] };
+                    var latestUpdate = updateInfo.Updates[0];
 
-                    // 4. 發現更新！切換到 UI 線程彈出 NetSparkle 的原生更新窗口
+                    // 2. 切換到 UI 線程，使用 Prism DialogService 彈出你的自定義視窗
                     Dispatcher.UIThread.Post(() =>
                     {
-                        SparkleInstance.ShowUpdateNeededUI(updatesList);
+                        var dialogService = Container.Resolve<IDialogService>();
+                        var parameters = new DialogParameters { { "UpdateInfo", latestUpdate } };
+
+                        dialogService.ShowDialog("UpdateDialog", parameters, result =>
+                        {
+                            if (result.Result == ButtonResult.OK)
+                            {
+                                SparkleInstance?.InstallUpdate(latestUpdate);
+                            }
+                        });
                     });
                 }
             }
@@ -105,9 +105,6 @@ namespace OB
             var splashWindow = new Window { Width = 1, Height = 1, SystemDecorations = SystemDecorations.None, ShowInTaskbar = false, Opacity = 0 };
             splashWindow.Show();
             desktopLifetime.MainWindow = splashWindow;
-
-            // 啟動後台更新檢查
-            _ = CheckForUpdatesAsync();
 
             var dialogService = Container.Resolve<IDialogService>();
             dialogService.ShowDialog("Login", null, async result =>
@@ -129,6 +126,7 @@ namespace OB
                         mainWin.Show();
                         desktopLifetime.MainWindow = mainWin;
                         await vm.DefaultNavigateAsync();
+                        _ = CheckForUpdatesAsync();
                         splashWindow.Close();
                     }
                     else
