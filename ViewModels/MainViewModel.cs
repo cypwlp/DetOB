@@ -72,6 +72,8 @@ namespace OB.ViewModels
         {
             this.regionManager = regionManager;
             logUser = new LogUserInfo();
+
+            // 初始化菜單
             MenuItems = new ObservableCollection<LeftMenuItem>
             {
                 new LeftMenuItem { Icon = MaterialIconKind.Home, Title = "首页", ViewName = "Home" },
@@ -79,88 +81,103 @@ namespace OB.ViewModels
                 new LeftMenuItem { Icon = MaterialIconKind.ChatProcessing, Title = "流程", ViewName = "Process" },
                 new LeftMenuItem { Icon = MaterialIconKind.CogOutline, Title = "设置", ViewName = "Settings" }
             };
+
             ToggleMenuCommand = new DelegateCommand(() => IsMenuExpanded = !IsMenuExpanded);
             SelectMenuItemCommand = new DelegateCommand<LeftMenuItem>(menuItem => _ = NavigateAsync(menuItem));
-            SelectedMenuItem = MenuItems.FirstOrDefault();
 
-            // 訂閱更新事件
+            // 設置默認選中項
+            _selectedMenuItem = MenuItems.FirstOrDefault();
+
+            // ==========================================
+            // 【核心修復】：註冊更新事件
+            // ==========================================
             App.UpdateReadyToInstall += OnUpdateReadyToInstall;
 
-            // 【核心修改】：如果進入主界面時已經下載好更新，延遲彈出
+            // 如果在登錄過程中更新已經下載好了，直接彈出
             if (App.IsUpdateReady)
             {
-                // 延遲 2 秒，確保 MainWin 的 DialogHost 已就緒
-                Task.Delay(2000).ContinueWith(_ =>
-                {
-                    Dispatcher.UIThread.Post(() => OnUpdateReadyToInstall(null, EventArgs.Empty));
-                });
+                // 稍微延遲，確保主窗口和 DialogHost 已經渲染完成
+                Dispatcher.UIThread.Post(() => OnUpdateReadyToInstall(null, EventArgs.Empty), DispatcherPriority.Background);
             }
         }
 
+        /// <summary>
+        /// 當更新包下載完成時觸發
+        /// </summary>
         private async void OnUpdateReadyToInstall(object? sender, EventArgs e)
         {
-            // 防止多次觸發
+            // 防止重複彈窗
             App.UpdateReadyToInstall -= OnUpdateReadyToInstall;
 
             // 確保在 UI 線程執行
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var result = await ShowUpdateConfirmationDialog();
-                if (result)
+                // 再給 UI 一點緩衝時間（1.5秒），確保 DialogHost 已加載
+                await Task.Delay(1500);
+
+                bool shouldInstall = await ShowUpdateConfirmationDialog();
+
+                if (shouldInstall)
                 {
-                    // 關閉窗口以釋放文件鎖
+                    // 執行安裝並重啟
                     if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
                     {
-                        lifetime.MainWindow?.Close();
+                        // 隱藏主窗口，避免安裝時文件佔用或干擾
+                        lifetime.MainWindow?.Hide();
                     }
-                    await Task.Delay(500);
+
+                    // 調用 App.cs 裡的靜態安裝方法
                     App.InstallUpdate();
                 }
             });
         }
 
+        /// <summary>
+        /// 彈出 Material Design 風格的更新確認對話框
+        /// </summary>
         private async Task<bool> ShowUpdateConfirmationDialog()
         {
-            var mainWindow = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-            if (mainWindow == null) return false;
-
-            var stackPanel = new StackPanel
+            var content = new StackPanel
             {
                 Spacing = 20,
-                Margin = new Thickness(20),
+                Margin = new Thickness(24),
+                Width = 300,
                 Children =
                 {
                     new TextBlock
                     {
-                        Text = "✨ 新版本已準備就緒",
-                        FontSize = 18,
+                        Text = "🚀 發現新版本",
+                        FontSize = 20,
                         FontWeight = FontWeight.Bold,
-                        HorizontalAlignment = HorizontalAlignment.Center
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Foreground = Brushes.Indigo
                     },
                     new TextBlock
                     {
-                        Text = "更新包已下載完成，是否立即安裝並重啟？",
-                        FontSize = 14,
-                        HorizontalAlignment = HorizontalAlignment.Center
+                        Text = "OB 系統更新包已下載完成。\n現在安裝並自動重啟應用嗎？",
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        TextAlignment = TextAlignment.Center,
+                        TextWrapping = TextWrapping.Wrap
                     },
                     new StackPanel
                     {
                         Orientation = Orientation.Horizontal,
                         HorizontalAlignment = HorizontalAlignment.Center,
-                        Spacing = 15,
+                        Spacing = 16,
                         Children =
                         {
                             new Button
                             {
-                                Content = "立即安裝",
-                                Classes = { "Primary" },
+                                Content = "立即更新",
                                 Width = 100,
+                                Classes = { "Primary" },
                                 Command = new DelegateCommand(() => DialogHost.Close("MainDialogHost", true))
                             },
                             new Button
                             {
                                 Content = "稍後",
                                 Width = 100,
+                                Theme = Application.Current.FindResource("MaterialFlatButton") as Avalonia.Styling.ControlTheme,
                                 Command = new DelegateCommand(() => DialogHost.Close("MainDialogHost", false))
                             }
                         }
@@ -170,17 +187,18 @@ namespace OB.ViewModels
 
             try
             {
-                var result = await DialogHost.Show(stackPanel, "MainDialogHost");
-                return result is bool boolResult && boolResult;
+                // Identifier 必須對應 MainWin.axaml 中的 <DialogHost Identifier="MainDialogHost">
+                var result = await DialogHost.Show(content, "MainDialogHost");
+                return result is bool b && b;
             }
-            catch
+            catch (Exception ex)
             {
-                // 如果 DialogHost 報錯，回退到普通視窗提示（備案）
+                System.Diagnostics.Debug.WriteLine($"[Update UI Error] 對話框顯示失敗: {ex.Message}");
                 return false;
             }
         }
 
-        #region 导航实现
+        #region 导航逻辑
         public async Task NavigateAsync(LeftMenuItem menuItem)
         {
             if (menuItem == null || string.IsNullOrEmpty(menuItem.ViewName))
