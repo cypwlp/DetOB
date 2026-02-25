@@ -5,6 +5,6 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="OB.Home">
 	<Grid>
-		<TextBlock>Velopack，這是7.0.4版本,加油,測試更新,倉庫gaigongyou，首頁,daodiweisha aiaiai hahahahaha yiyaaimamaye</TextBlock>
+		<TextBlock>Velopack，這是7.0.5版本,加油,測試更新,倉庫gaigongyou，首頁,daodiweisha aiaiai hahahahaha yiyaaimamaye</TextBlock>
 	</Grid>
 </UserControl>
