@@ -59,57 +59,43 @@ namespace OB
         {
             try
             {
-                // 1. 確保 TLS 協議支持 GitHub 下載
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
-
                 string appcastUrl = "https://github.com/cypwlp/OB/releases/latest/download/appcast.xml";
-
-                // 2. 獲取當前運行的 .exe 路徑 (這是在 .NET 8 中獲取當前路徑最可靠的方法)
                 string assemblyPath = System.Environment.ProcessPath ?? Assembly.GetEntryAssembly()?.Location ?? "";
 
-                System.Diagnostics.Debug.WriteLine($"[Update] 正在檢查路徑: {assemblyPath}");
+                System.Diagnostics.Debug.WriteLine($"[Update] 啟動更新檢查，路徑: {assemblyPath}");
 
-                // 3. 初始化 SparkleUpdater
-                // 【關鍵修復】：使用三個參數的構造函數，傳入 assemblyPath
-                // SecurityMode.Unsafe 解決了沒有簽名的問題
+                // 使用 Unsafe 模式處理無簽名情況
                 _sparkle = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe), assemblyPath)
                 {
                     UIFactory = null,
                     RelaunchAfterUpdate = true
                 };
 
-                // 下載完成後的處理
                 _sparkle.DownloadFinished += (sender, path) =>
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Update] 更新包下載完成: {path}");
-                    _isUpdateReady = true;
+                    System.Diagnostics.Debug.WriteLine($"[Update] 更新包已下載至: {path}");
                     _updateInstallerPath = path;
-                    // 觸發事件通知 UI (MainViewModel 會監聽此事件)
+                    _isUpdateReady = true; // 設置狀態
                     UpdateReadyToInstall?.Invoke(null, EventArgs.Empty);
                 };
 
-                // 4. 主動檢查更新
                 var updateInfo = await _sparkle.CheckForUpdatesQuietly();
 
-                // 判斷是否發現新版本
                 if (updateInfo.Status == UpdateStatus.UpdateAvailable && updateInfo.Updates?.Count > 0)
                 {
                     _updateItem = updateInfo.Updates[0];
-                    System.Diagnostics.Debug.WriteLine($"[Update] 發現新版本: {_updateItem.Version}，正在後台下載...");
-
-                    // 發現更新，立即開始下載
+                    System.Diagnostics.Debug.WriteLine($"[Update] 檢測到新版本: {_updateItem.Version}，開始背景下載...");
                     await _sparkle.InitAndBeginDownload(_updateItem);
                 }
                 else
                 {
-                    // 這裡可以查看識別到的當前版本，方便排查
-                    var currentV = _sparkle.Configuration?.InstalledVersion;
-                    System.Diagnostics.Debug.WriteLine($"[Update] 無需更新。識別版本: {currentV}, 狀態: {updateInfo.Status}");
+                    System.Diagnostics.Debug.WriteLine($"[Update] 無需更新。當前識別版本: {_sparkle.Configuration?.InstalledVersion}");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[Update] 更新檢查失敗: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[Update] 錯誤: {ex.Message}");
             }
         }
 
@@ -117,7 +103,7 @@ namespace OB
         {
             if (_sparkle != null && _updateItem != null && _updateInstallerPath != null)
             {
-                // 調用安裝程序
+                System.Diagnostics.Debug.WriteLine("[Update] 執行安裝並重啟...");
                 _sparkle.InstallUpdate(_updateItem, _updateInstallerPath);
             }
         }
@@ -131,13 +117,12 @@ namespace OB
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
                 SystemDecorations = SystemDecorations.None,
                 Background = new SolidColorBrush(Colors.White),
-                ShowInTaskbar = false,
-                IsHitTestVisible = false
+                ShowInTaskbar = false
             };
             splashWindow.Show();
             desktopLifetime.MainWindow = splashWindow;
 
-            // 啟動後台更新檢查
+            // 異步檢查更新
             _ = CheckForUpdatesAsync();
 
             var dialogService = Container.Resolve<IDialogService>();

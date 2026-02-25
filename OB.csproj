@@ -7,7 +7,10 @@
 		<Nullable>enable</Nullable>
 		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 		<PackageIcon>favicon.ico</PackageIcon>
+		<!-- 【關鍵修改】：禁止在版本號後面生成 +hash 後綴，確保 NetSparkle 能正確對比版本 -->
+		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 	</PropertyGroup>
+
 	<ItemGroup>
 		<AvaloniaXaml Remove="Views\Dialogs\SetUrl.axaml" />
 	</ItemGroup>
@@ -29,7 +32,6 @@
 		<PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
 		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
 		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
-		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
 		<PackageReference Include="Avalonia.Diagnostics" Version="11.3.11">
 			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
 			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
