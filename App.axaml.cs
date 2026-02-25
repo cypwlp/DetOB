@@ -1,12 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Layout;
-using Avalonia.Media;
 using Avalonia.Threading;
 using NetSparkleUpdater;
 using NetSparkleUpdater.Enums;
 using NetSparkleUpdater.SignatureVerifiers;
+using NetSparkleUpdater.UI.Avalonia; // 確保有引用這個
 using OB.Models;
 using OB.Tools;
 using OB.ViewModels;
@@ -18,23 +17,17 @@ using Prism.DryIoc;
 using Prism.Ioc;
 using Prism.Navigation.Regions;
 using System;
+using System.Collections.Generic; // 必須引用，為了使用 List<>
 using System.Net;
 using System.Reflection;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace OB
 {
     public partial class App : PrismApplication
     {
-        private static SparkleUpdater? _sparkle;
-        private static bool _isUpdateReady = false;
-        private static AppCastItem? _updateItem;
-        private static string? _updateInstallerPath;
-        private static StringBuilder _debugLogs = new StringBuilder();
-
-        public static event EventHandler? UpdateReadyToInstall;
-        public static bool IsUpdateReady => _isUpdateReady;
+        // 將 Sparkle 暴露出來，方便在設置頁面手動觸發檢查
+        public static SparkleUpdater? SparkleInstance { get; private set; }
 
         protected override AvaloniaObject CreateShell() => null!;
 
@@ -57,129 +50,61 @@ namespace OB
             base.OnFrameworkInitializationCompleted();
         }
 
+        /// <summary>
+        /// 初始化並檢查更新 (使用 NetSparkle 原生 UI)
+        /// </summary>
         private async Task CheckForUpdatesAsync()
         {
-            _debugLogs.Clear();
-            _debugLogs.AppendLine("--- Update Diagnostic Report ---");
-
             try
             {
+                // 確保安全傳輸協議
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
+
                 string appcastUrl = @"https://github.com/cypwlp/OB/releases/latest/download/appcast.xml";
 
                 var assembly = Assembly.GetEntryAssembly();
-                var currentVersion = assembly?.GetName().Version ?? new Version(0, 0, 0, 0);
                 string assemblyPath = System.Environment.ProcessPath ?? assembly?.Location ?? "";
 
-                _debugLogs.AppendLine("[Local Version] " + currentVersion.ToString());
-                _debugLogs.AppendLine("[App Path] " + assemblyPath);
+                // 【修正 1】：類名是 UIFactory 而不是 AvaloniaUIFactory
+                var guiFactory = new UIFactory();
 
-                _sparkle = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe), assemblyPath)
+                // 2. 初始化 SparkleUpdater
+                SparkleInstance = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe), assemblyPath)
                 {
-                    UIFactory = null,
-                    RelaunchAfterUpdate = true
+                    UIFactory = guiFactory,
+                    RelaunchAfterUpdate = true,
+                    RestartExecutableName = "OB.exe"
                 };
 
-                // NetSparkle 3.0.3 Events
-                _sparkle.DownloadStarted += (item, path) => _debugLogs.AppendLine("[Download] Started: " + item.Version);
+                // 3. 背景檢查更新
+                var updateInfo = await SparkleInstance.CheckForUpdatesQuietly();
 
-                _sparkle.DownloadFinished += (item, path) =>
+                if (updateInfo.Status == UpdateStatus.UpdateAvailable && updateInfo.Updates != null)
                 {
-                    _debugLogs.AppendLine("[Download] Success! Path: " + path);
-                    _updateInstallerPath = path;
-                    _isUpdateReady = true;
-                    UpdateReadyToInstall?.Invoke(null, EventArgs.Empty);
-                };
+                    // 【修正 2】：傳入 List<AppCastItem> 而不是單個項
+                    var updatesList = new List<AppCastItem> { updateInfo.Updates[0] };
 
-                _sparkle.DownloadHadError += (item, path, exception) =>
-                {
-                    string errMsg = "[Error] Download Failed: " + exception.Message;
-                    _debugLogs.AppendLine(errMsg);
-                    ShowDebugError("Download Error", errMsg);
-                };
-
-                var updateInfo = await _sparkle.CheckForUpdatesQuietly();
-                _debugLogs.AppendLine("[Status] " + updateInfo.Status.ToString());
-
-                if (updateInfo.Status == UpdateStatus.UpdateAvailable && updateInfo.Updates?.Count > 0)
-                {
-                    _updateItem = updateInfo.Updates[0];
-                    _debugLogs.AppendLine("[New Version Found] " + _updateItem.Version);
-
-                    if (new Version(_updateItem.Version) > currentVersion)
+                    // 4. 發現更新！切換到 UI 線程彈出 NetSparkle 的原生更新窗口
+                    Dispatcher.UIThread.Post(() =>
                     {
-                        _debugLogs.AppendLine("[Action] Initializing background download...");
-                        await _sparkle.InitAndBeginDownload(_updateItem);
-                    }
-                    else
-                    {
-                        _debugLogs.AppendLine("[Skip] New version is not higher than local.");
-                    }
-                }
-                else
-                {
-                    _debugLogs.AppendLine("[Result] No update needed. Status: " + updateInfo.Status.ToString());
+                        SparkleInstance.ShowUpdateNeededUI(updatesList);
+                    });
                 }
             }
             catch (Exception ex)
             {
-                _debugLogs.AppendLine("[Crash] " + ex.Message);
-                ShowDebugError("Check Update Exception", _debugLogs.ToString());
+                System.Diagnostics.Debug.WriteLine($"[Update Error] {ex.Message}");
             }
-        }
-
-        private void ShowDebugError(string title, string content)
-        {
-            Dispatcher.UIThread.Post(async () =>
-            {
-                var tipText = new TextBlock
-                {
-                    Text = "Update Notification (Diagnostic)",
-                    Margin = new Thickness(10),
-                    Foreground = Brushes.Red,
-                    FontWeight = FontWeight.Bold
-                };
-                DockPanel.SetDock(tipText, Dock.Top);
-
-                var logBox = new TextBox
-                {
-                    Text = content,
-                    IsReadOnly = true,
-                    AcceptsReturn = true,
-                    TextWrapping = TextWrapping.Wrap,
-                    Margin = new Thickness(10)
-                };
-
-                var rootPanel = new DockPanel();
-                rootPanel.Children.Add(tipText);
-                rootPanel.Children.Add(logBox);
-
-                var win = new Window
-                {
-                    Title = "Debug - " + title,
-                    Width = 600,
-                    Height = 450,
-                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                    Content = rootPanel
-                };
-
-                if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                    await win.ShowDialog(desktop.MainWindow ?? win);
-            });
-        }
-
-        public static void InstallUpdate()
-        {
-            if (_sparkle != null && _updateItem != null && _updateInstallerPath != null)
-                _sparkle.InstallUpdate(_updateItem, _updateInstallerPath);
         }
 
         private void StartWithLoginAsync(IClassicDesktopStyleApplicationLifetime desktopLifetime)
         {
-            var splashWindow = new Window { Width = 1, Height = 1, SystemDecorations = SystemDecorations.None, ShowInTaskbar = false };
+            // 創建一個透明的虛擬視窗作為初始主窗口
+            var splashWindow = new Window { Width = 1, Height = 1, SystemDecorations = SystemDecorations.None, ShowInTaskbar = false, Opacity = 0 };
             splashWindow.Show();
             desktopLifetime.MainWindow = splashWindow;
 
+            // 啟動後台更新檢查
             _ = CheckForUpdatesAsync();
 
             var dialogService = Container.Resolve<IDialogService>();
@@ -195,16 +120,26 @@ namespace OB
                         vm.LogUser = LogUser;
                         vm.RemoteDBTools = dbtools;
                         mainWin.DataContext = vm;
+
                         var regionManager = Container.Resolve<IRegionManager>();
                         RegionManager.SetRegionManager(mainWin, regionManager);
+
                         mainWin.Show();
                         desktopLifetime.MainWindow = mainWin;
                         await vm.DefaultNavigateAsync();
                         splashWindow.Close();
                     }
-                    else { splashWindow.Close(); desktopLifetime.Shutdown(); }
+                    else
+                    {
+                        splashWindow.Close();
+                        desktopLifetime.Shutdown();
+                    }
                 }
-                else { splashWindow.Close(); desktopLifetime.Shutdown(); }
+                else
+                {
+                    splashWindow.Close();
+                    desktopLifetime.Shutdown();
+                }
             });
         }
     }
