@@ -225,6 +225,8 @@ jobs:
       - name: Generate appcast.xml
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
+          # 【核心修改】：強制將版本號補齊為 4 位，解決 3.0.3.0 比 3.0.5 大的潛在解析問題
+          FULL_VERSION="$VERSION.0" 
           DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
           
           WIN_FILE="OB-win-x64.exe"
@@ -244,7 +246,7 @@ jobs:
               <item>
                 <title>Version $VERSION</title>
                 <pubDate>$DATE</pubDate>
-                <sparkle:version>$VERSION</sparkle:version>
+                <sparkle:version>$FULL_VERSION</sparkle:version>
                 <sparkle:releaseNotesLink>https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}</sparkle:releaseNotesLink>
                 <enclosure
                   url="$WIN_URL"

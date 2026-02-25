@@ -2,8 +2,9 @@
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
-using DialogHostAvalonia;  // 確保 using 已存在
+using DialogHostAvalonia;
 using Material.Icons;
 using OB.Models;
 using OB.Tools;
@@ -77,117 +78,106 @@ namespace OB.ViewModels
                 new LeftMenuItem { Icon = MaterialIconKind.Database, Title = "檢測", ViewName = "Detect" },
                 new LeftMenuItem { Icon = MaterialIconKind.ChatProcessing, Title = "流程", ViewName = "Process" },
                 new LeftMenuItem { Icon = MaterialIconKind.CogOutline, Title = "设置", ViewName = "Settings" }
-                
             };
             ToggleMenuCommand = new DelegateCommand(() => IsMenuExpanded = !IsMenuExpanded);
             SelectMenuItemCommand = new DelegateCommand<LeftMenuItem>(menuItem => _ = NavigateAsync(menuItem));
             SelectedMenuItem = MenuItems.FirstOrDefault();
 
-            // 订阅更新事件
+            // 訂閱更新事件
             App.UpdateReadyToInstall += OnUpdateReadyToInstall;
+
+            // 【核心修改】：如果進入主界面時已經下載好更新，延遲彈出
             if (App.IsUpdateReady)
             {
-                // 如果更新已经在后台下载完成，立即提示（使用 UI 线程）
-                Dispatcher.UIThread.Post(() => OnUpdateReadyToInstall(null, EventArgs.Empty));
+                // 延遲 2 秒，確保 MainWin 的 DialogHost 已就緒
+                Task.Delay(2000).ContinueWith(_ =>
+                {
+                    Dispatcher.UIThread.Post(() => OnUpdateReadyToInstall(null, EventArgs.Empty));
+                });
             }
         }
 
-        //private async void OnUpdateReadyToInstall(object? sender, EventArgs e)
-        //{
-        //    // 防止多次触发
-        //    App.UpdateReadyToInstall -= OnUpdateReadyToInstall;
-        //    var result = await ShowUpdateConfirmationDialog();
-        //    if (result)
-        //    {
-        //        App.InstallUpdate();
-        //    }
-        //}
         private async void OnUpdateReadyToInstall(object? sender, EventArgs e)
         {
-            // 防止多次触发
+            // 防止多次觸發
             App.UpdateReadyToInstall -= OnUpdateReadyToInstall;
-            var result = await ShowUpdateConfirmationDialog();
-            if (result)
+
+            // 確保在 UI 線程執行
+            await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                // 关闭主窗口，释放文件锁
-                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
+                var result = await ShowUpdateConfirmationDialog();
+                if (result)
                 {
-                    lifetime.MainWindow?.Close();
+                    // 關閉窗口以釋放文件鎖
+                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
+                    {
+                        lifetime.MainWindow?.Close();
+                    }
+                    await Task.Delay(500);
+                    App.InstallUpdate();
                 }
-                // 短暂等待窗口完全关闭
-                await Task.Delay(500);
-                // 执行更新
-                App.InstallUpdate();
-            }
+            });
         }
-
-        //private async void OnUpdateReadyToInstall(object? sender, EventArgs e)
-        //{
-        //    // 防止多次触发
-        //    App.UpdateReadyToInstall -= OnUpdateReadyToInstall;
-
-        //    // 切换到 UI 线程
-        //    await Dispatcher.UIThread.InvokeAsync(async () =>
-        //    {
-        //        var result = await ShowUpdateConfirmationDialog();
-        //        if (result)
-        //        {
-        //            // 关闭主窗口，释放文件锁
-        //            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
-        //            {
-        //                lifetime.MainWindow?.Close();
-        //            }
-        //            await Task.Delay(500); // 等待窗口完全关闭
-        //            App.InstallUpdate();
-        //        }
-        //    });
-        //}
 
         private async Task<bool> ShowUpdateConfirmationDialog()
         {
             var mainWindow = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
             if (mainWindow == null) return false;
 
-            // 构建确认对话框内容
             var stackPanel = new StackPanel
             {
                 Spacing = 20,
+                Margin = new Thickness(20),
                 Children =
                 {
                     new TextBlock
                     {
-                        Text = "新版本已下载，是否立即安装？",
-                        FontSize = 16,
+                        Text = "✨ 新版本已準備就緒",
+                        FontSize = 18,
+                        FontWeight = FontWeight.Bold,
+                        HorizontalAlignment = HorizontalAlignment.Center
+                    },
+                    new TextBlock
+                    {
+                        Text = "更新包已下載完成，是否立即安裝並重啟？",
+                        FontSize = 14,
                         HorizontalAlignment = HorizontalAlignment.Center
                     },
                     new StackPanel
                     {
                         Orientation = Orientation.Horizontal,
                         HorizontalAlignment = HorizontalAlignment.Center,
-                        Spacing = 10,
+                        Spacing = 15,
                         Children =
                         {
                             new Button
                             {
-                                Content = "立即安装",
-                                Classes = { "Primary" }, // 若 Material 主题中有 Primary 样式则生效
-                                Command = new DelegateCommand(() => DialogHostAvalonia.DialogHost.Close("MainDialogHost", true)),  // 使用完全限定名称避免冲突
-                                CommandParameter = true
+                                Content = "立即安裝",
+                                Classes = { "Primary" },
+                                Width = 100,
+                                Command = new DelegateCommand(() => DialogHost.Close("MainDialogHost", true))
                             },
                             new Button
                             {
-                                Content = "稍后",
-                                Command = new DelegateCommand(() => DialogHostAvalonia.DialogHost.Close("MainDialogHost", false)),  // 使用完全限定名称避免冲突
-                                CommandParameter = false
+                                Content = "稍後",
+                                Width = 100,
+                                Command = new DelegateCommand(() => DialogHost.Close("MainDialogHost", false))
                             }
                         }
                     }
                 }
             };
 
-            // 使用主窗口中的 DialogHost（Identifier="MainDialogHost"）
-            var result = await DialogHost.Show(stackPanel, "MainDialogHost");
-            return result is bool boolResult && boolResult;
+            try
+            {
+                var result = await DialogHost.Show(stackPanel, "MainDialogHost");
+                return result is bool boolResult && boolResult;
+            }
+            catch
+            {
+                // 如果 DialogHost 報錯，回退到普通視窗提示（備案）
+                return false;
+            }
         }
 
         #region 导航实现
@@ -197,12 +187,7 @@ namespace OB.ViewModels
                 return;
 
             var parameters = new NavigationParameters();
-            if (menuItem.ViewName == "Home" && LogUser != null)
-            {
-                parameters.Add("LogUser", LogUser);
-                parameters.Add("dbtools", RemoteDBTools);
-            }
-            if (menuItem.ViewName == "Settings" && LogUser != null)
+            if (LogUser != null)
             {
                 parameters.Add("LogUser", LogUser);
                 parameters.Add("dbtools", RemoteDBTools);

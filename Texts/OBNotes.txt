@@ -1,6 +1,6 @@
 ﻿觸發Github Actions:
 git add .
 git commit -m "更新 OBNotes.txt"
-git push master master
+git push origin master
 git tag -a v1.0.0 -m "版本 v1.0.0 发布"
-git push master v1.0.0
+git push origin v1.0.0

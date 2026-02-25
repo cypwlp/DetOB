@@ -17,6 +17,7 @@ using Prism.DryIoc;
 using Prism.Ioc;
 using Prism.Navigation.Regions;
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 
@@ -56,42 +57,41 @@ namespace OB
         {
             try
             {
+                // 確保 TLS 協議正確
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
+
                 string appcastUrl = "https://github.com/cypwlp/OB/releases/latest/download/appcast.xml";
+
+                // 【修復編譯錯誤】：使用 Ed25519Checker 並設為 SecurityMode.Unsafe
                 _sparkle = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe))
                 {
-                    SecurityProtocolType = ServicePointManager.SecurityProtocol, // 使用系統默認
-                    UIFactory = null, // 無內建 UI
-                    RelaunchAfterUpdate = true // 更新後自動重啟
+                    UIFactory = null,
+                    RelaunchAfterUpdate = true
                 };
 
-                // 更新檢測 → 自動開始下載
-                _sparkle.UpdateDetected += async (sender, e) =>
-                {
-                    if (e.LatestVersion != null)
-                    {
-                        _updateItem = e.LatestVersion;
-                        await _sparkle.InitAndBeginDownload(_updateItem);
-                    }
-                };
-
-                // 下載完成 → 標記並觸發事件
+                // 下載完成後的處理
                 _sparkle.DownloadFinished += (sender, path) =>
                 {
                     _isUpdateReady = true;
                     _updateInstallerPath = path;
+                    // 觸發事件通知 UI
                     UpdateReadyToInstall?.Invoke(null, EventArgs.Empty);
                 };
 
-                // 靜默檢查更新（异步調用）
+                // 主動檢查並處理結果
                 var updateInfo = await _sparkle.CheckForUpdatesQuietly();
-                if (updateInfo.Status == UpdateStatus.UpdateAvailable)
+
+                // 【修復編譯錯誤】：從 Updates 列表獲取第一個更新項
+                if (updateInfo.Status == UpdateStatus.UpdateAvailable && updateInfo.Updates != null && updateInfo.Updates.Count > 0)
                 {
-                    // 事件會自動處理
+                    _updateItem = updateInfo.Updates[0];
+                    // 發現更新，立即開始後台下載
+                    await _sparkle.InitAndBeginDownload(_updateItem);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"更新檢查失敗: {ex}");
+                System.Diagnostics.Debug.WriteLine($"更新檢查失敗: {ex.Message}");
             }
         }
 
@@ -105,7 +105,6 @@ namespace OB
 
         private void StartWithLoginAsync(IClassicDesktopStyleApplicationLifetime desktopLifetime)
         {
-            // 臨時隱藏窗口（作為登入對話框的所有者）
             var splashWindow = new Window
             {
                 Width = 1,
@@ -120,7 +119,7 @@ namespace OB
             splashWindow.Show();
             desktopLifetime.MainWindow = splashWindow;
 
-            // 後台開始更新檢查（不阻塞 UI）
+            // 啟動後台更新檢查
             _ = CheckForUpdatesAsync();
 
             var dialogService = Container.Resolve<IDialogService>();
