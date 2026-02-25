@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using DryIoc.ImTools;
 using NetSparkleUpdater;
 using NetSparkleUpdater.Enums;
 using NetSparkleUpdater.SignatureVerifiers;
@@ -75,6 +76,7 @@ namespace OB
                     RelaunchAfterUpdate = true,
                     RestartExecutableName = "OB.exe"
                 };
+               await SparkleInstance.StartLoop(true);
 
                 // 3. ±³¾°™z²é¸üÐÂ
                 var updateInfo = await SparkleInstance.CheckForUpdatesQuietly();
