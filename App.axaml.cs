@@ -1,11 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Threading;
 using NetSparkleUpdater;
-using NetSparkleUpdater.Enums;
 using NetSparkleUpdater.SignatureVerifiers;
-using NetSparkleUpdater.UI.Avalonia; // 確保有引用這個
+using NetSparkleUpdater.UI.Avalonia;
 using OB.Models;
 using OB.Tools;
 using OB.ViewModels;
@@ -17,7 +15,6 @@ using Prism.DryIoc;
 using Prism.Ioc;
 using Prism.Navigation.Regions;
 using System;
-using System.Collections.Generic; // 必須引用，為了使用 List<>
 using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -26,7 +23,7 @@ namespace OB
 {
     public partial class App : PrismApplication
     {
-        // 將 Sparkle 暴露出來，方便在設置頁面手動觸發檢查
+        // 公開靜態實例，方便在 MainViewModel 中調用
         public static SparkleUpdater? SparkleInstance { get; private set; }
 
         protected override AvaloniaObject CreateShell() => null!;
@@ -45,67 +42,47 @@ namespace OB
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime)
             {
+                // 1. 初始化更新器配置（僅配置，不執行檢查）
+                InitUpdateConfig();
+
+                // 2. 啟動登錄流程
                 StartWithLoginAsync(desktopLifetime);
             }
             base.OnFrameworkInitializationCompleted();
         }
 
-        /// <summary>
-        /// 初始化並檢查更新 (使用 NetSparkle 原生 UI)
-        /// </summary>
-        private async Task CheckForUpdatesAsync()
+        private void InitUpdateConfig()
         {
             try
             {
-                // 確保安全傳輸協議
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
-
                 string appcastUrl = @"https://github.com/cypwlp/OB/releases/latest/download/appcast.xml";
 
                 var assembly = Assembly.GetEntryAssembly();
                 string assemblyPath = System.Environment.ProcessPath ?? assembly?.Location ?? "";
 
-                // 【修正 1】：類名是 UIFactory 而不是 AvaloniaUIFactory
-                var guiFactory = new UIFactory();
-
-                // 2. 初始化 SparkleUpdater
-                SparkleInstance = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe), assemblyPath)
+                // 初始化 NetSparkle
+                SparkleInstance = new SparkleUpdater(appcastUrl, new Ed25519Checker(NetSparkleUpdater.Enums.SecurityMode.Unsafe), assemblyPath)
                 {
-                    UIFactory = guiFactory,
+                    UIFactory = new UIFactory(),
                     RelaunchAfterUpdate = true,
                     RestartExecutableName = "OB.exe"
                 };
 
-                // 3. 背景檢查更新
-                var updateInfo = await SparkleInstance.CheckForUpdatesQuietly();
-
-                if (updateInfo.Status == UpdateStatus.UpdateAvailable && updateInfo.Updates != null)
-                {
-                    // 【修正 2】：傳入 List<AppCastItem> 而不是單個項
-                    var updatesList = new List<AppCastItem> { updateInfo.Updates[0] };
-
-                    // 4. 發現更新！切換到 UI 線程彈出 NetSparkle 的原生更新窗口
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        SparkleInstance.ShowUpdateNeededUI(updatesList);
-                    });
-                }
+                // 測試建議：如果你曾經點過「跳過此版本」，取消下面這行註釋可以重置狀態
+                // SparkleInstance.ClearSkippedVersion(); 
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[Update Error] {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[Update Init Error] {ex.Message}");
             }
         }
 
         private void StartWithLoginAsync(IClassicDesktopStyleApplicationLifetime desktopLifetime)
         {
-            // 創建一個透明的虛擬視窗作為初始主窗口
             var splashWindow = new Window { Width = 1, Height = 1, SystemDecorations = SystemDecorations.None, ShowInTaskbar = false, Opacity = 0 };
             splashWindow.Show();
             desktopLifetime.MainWindow = splashWindow;
-
-            // 啟動後台更新檢查
-            _ = CheckForUpdatesAsync();
 
             var dialogService = Container.Resolve<IDialogService>();
             dialogService.ShowDialog("Login", null, async result =>
