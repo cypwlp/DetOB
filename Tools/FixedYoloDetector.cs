@@ -275,5 +275,9 @@ namespace OB.Tools
         {
             _session?.Dispose();
         }
+
+        //獲取每個PDF的原始DPI信息，根據DPI信息和PDF真實尺寸來實際計算目標的實際物理長寬
+
+
     }
 }
