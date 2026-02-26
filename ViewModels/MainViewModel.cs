@@ -115,8 +115,8 @@ namespace OB.ViewModels
                 new LeftMenuItem { Icon = MaterialIconKind.CogOutline, Title = "設置",
                 SubItems = 
                     [
-                        new() { Icon = MaterialIconKind.Account, Title = "檢測設置", ViewName = "UserManagement" },
-                        new() { Icon = MaterialIconKind.DatabaseSettings, Title = "偏好設置", ViewName = "DatabaseSettings" }
+                        new() { Icon = MaterialIconKind.Cog, Title = "檢測設置", ViewName = "Settings" },
+                        new() { Icon = MaterialIconKind.Account, Title = "個人中心", ViewName = "Personal" }
                     ]
 
                 }

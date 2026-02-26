@@ -1,10 +1,38 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="OB.Settings">
-	<Grid>
-		<TextBlock>設置auucsduuduUudud</TextBlock>
-	</Grid>
+             xmlns:vm="using:OB.ViewModels"
+             x:Class="OB.Settings"
+             x:DataType="vm:SettingsViewModel">
+    <DockPanel Margin="20">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
+            <TextBlock Text="模型標籤合格判定配置 (單位: mm / mm²)" FontSize="20" FontWeight="Bold"/>
+            <Button Grid.Column="1" Content="儲存設置" Command="{Binding SaveSettings}" Classes="Accent"/>
+        </Grid>
+
+        <DataGrid ItemsSource="{Binding ClassSettings}" AutoGenerateColumns="False" GridLinesVisibility="All" BorderThickness="1" BorderBrush="Gray">
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="偵測" Binding="{Binding IsEnabled}" Width="50"/>
+                <DataGridTextColumn Header="類別" Binding="{Binding Label}" IsReadOnly="True" Width="120"/>
+                
+                <DataGridTemplateColumn Header="最低置信度" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <NumericUpDown Value="{Binding MinConfidence}" Minimum="0" Maximum="1" Increment="0.05" FormatString="P0"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- 面積敏感開關 -->
+                <DataGridCheckBoxColumn Header="PDF面積敏感" Binding="{Binding IsAreaSensitive}" Width="110"/>
+                
+                <!-- 面積閾值與分級標準 -->
+                <DataGridTextColumn Header="PDF面積閾值(mm²)" Binding="{Binding PdfAreaThreshold}" Width="130"/>
+                <DataGridTextColumn Header=">閾值要求(mm)" Binding="{Binding MinSizeIfLargePdf}" Width="120"/>
+                <DataGridTextColumn Header="≤閾值要求(mm)" Binding="{Binding MinSizeIfSmallPdf}" Width="120"/>
+                
+                <!-- 固定標準 -->
+                <DataGridTextColumn Header="固定要求(mm)" Binding="{Binding MinSizeFixed}" Width="120"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
 </UserControl>
