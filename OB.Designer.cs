@@ -82,5 +82,17 @@ namespace OB {
                 this["mPassword"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string mYoloLabels {
+            get {
+                return ((string)(this["mYoloLabels"]));
+            }
+            set {
+                this["mYoloLabels"] = value;
+            }
+        }
     }
 }

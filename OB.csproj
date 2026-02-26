@@ -8,6 +8,7 @@
 		<PackageIcon>favicon.ico</PackageIcon>
 		<!-- 【關鍵修改】：禁止在版本號後面生成 +hash 後綴，確保 NetSparkle 能正確對比版本 -->
 		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -36,16 +37,19 @@
 			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
 		</PackageReference>
 		<PackageReference Include="Dapper" Version="2.1.66" />
+		<PackageReference Include="Docnet.Core" Version="2.6.0" />
 		<PackageReference Include="Material.Avalonia" Version="3.13.4" />
 		<PackageReference Include="Material.Avalonia.DataGrid" Version="3.13.4" />
 		<PackageReference Include="Material.Avalonia.Dialogs" Version="3.13.4" />
 		<PackageReference Include="Material.Icons.Avalonia" Version="3.0.0" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
+		<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.2" />
 		<PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.0.3" />
 		<PackageReference Include="NetSparkleUpdater.UI.Avalonia" Version="3.0.3" />
 		<PackageReference Include="Prism.DryIoc.Avalonia" Version="9.0.537.11130" />
 		<PackageReference Include="ReactiveUI.Avalonia" Version="11.3.8" />
+		<PackageReference Include="SkiaSharp" Version="3.119.2" />
 		<PackageReference Include="System.ServiceModel.Primitives" Version="8.0.0" />
 		<PackageReference Include="System.ServiceModel.Http" Version="8.0.0" />
 		<PackageReference Include="System.ServiceModel.NetTcp" Version="8.0.0" />
@@ -74,5 +78,8 @@
 			<Generator>SettingsSingleFileGenerator</Generator>
 			<LastGenOutput>OB.Designer.cs</LastGenOutput>
 		</None>
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="OnnxModel\" />
 	</ItemGroup>
 </Project>
