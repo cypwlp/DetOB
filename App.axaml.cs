@@ -33,6 +33,7 @@ namespace OB
             containerRegistry.RegisterForNavigation<Process, ProcessViewModel>();
             containerRegistry.RegisterDialog<UpdateDialog, UpdateViewModel>();
             containerRegistry.RegisterDialog<About, AboutViewModel>();
+            containerRegistry.RegisterDialog<UploadDialog, UploadViewModel>();
         }
 
         public override void OnFrameworkInitializationCompleted()
