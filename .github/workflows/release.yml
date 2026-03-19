@@ -105,14 +105,23 @@ jobs:
         shell: bash
         run: |
           cd ./Releases
+          
+          # Rename the main artifacts with correct RID (nupkg, delta, etc.)
           for f in OB-*-osx-*; do
             if [ -f "$f" ]; then
               newname=$(echo "$f" | sed "s/-osx-/-${{ matrix.rid }}-/")
               mv "$f" "$newname"
             fi
           done
-          [ -f "RELEASES-osx" ] && mv RELEASES-osx "RELEASES-${{ matrix.rid }}"
-          [ -f "releases.osx.json" ] && mv releases.osx.json "releases.${{ matrix.rid }}.json"
+          
+          # Rename RELEASES and json files
+          [ -f "RELEASES-osx" ] && mv "RELEASES-osx" "RELEASES-${{ matrix.rid }}"
+          [ -f "releases.osx.json" ] && mv "releases.osx.json" "releases.${{ matrix.rid }}.json"
+          
+          # Rename Portable.zip and Setup.pkg to include the RID
+          [ -f "OB-osx-Portable.zip" ] && mv "OB-osx-Portable.zip" "OB-${{ matrix.rid }}-Portable.zip"
+          [ -f "OB-osx-Setup.pkg" ] && mv "OB-osx-Setup.pkg" "OB-${{ matrix.rid }}-Setup.pkg"
+          
           cd ..
 
       - name: List Release Directory
