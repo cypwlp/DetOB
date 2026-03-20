@@ -34,6 +34,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      # ---------- 缓存 ----------
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Cache .NET tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.dotnet/tools
+          key: ${{ runner.os }}-dotnet-tools-vpk
+
+      - name: Cache icon files
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./Assets/app-icon.icns
+            ./Assets/app-icon.ico
+          key: icon-${{ hashFiles('./Assets/app-icon.png') }}
+
+      # ---------- 安装依赖 ----------
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -48,29 +72,33 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfuse2 desktop-file-utils libglib2.0-bin
 
-      # 平台专属图标转换
+      # ---------- 图标转换（利用缓存，如果文件已存在则跳过）----------
       - name: Prepare Icon and Platform Flags
         id: prepare
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
-            choco install imagemagick -y
-            magick convert ./Assets/app-icon.png -define icon:auto-resize=256,128,64,48,32,16 ./Assets/app-icon.ico
+            if [ ! -f "./Assets/app-icon.ico" ]; then
+              choco install imagemagick -y
+              magick convert ./Assets/app-icon.png -define icon:auto-resize=256,128,64,48,32,16 ./Assets/app-icon.ico
+            fi
             echo "ICON=./Assets/app-icon.ico" >> $GITHUB_ENV
             echo "BUNDLE_ID=" >> $GITHUB_ENV
           elif [ "$RUNNER_OS" == "macOS" ]; then
-            mkdir -p AppIcon.iconset
-            sips -z 16 16     Assets/app-icon.png --out AppIcon.iconset/icon_16x16.png
-            sips -z 32 32     Assets/app-icon.png --out AppIcon.iconset/icon_16x16@2x.png
-            sips -z 32 32     Assets/app-icon.png --out AppIcon.iconset/icon_32x32.png
-            sips -z 64 64     Assets/app-icon.png --out AppIcon.iconset/icon_32x32@2x.png
-            sips -z 128 128   Assets/app-icon.png --out AppIcon.iconset/icon_128x128.png
-            sips -z 256 256   Assets/app-icon.png --out AppIcon.iconset/icon_128x128@2x.png
-            sips -z 256 256   Assets/app-icon.png --out AppIcon.iconset/icon_256x256.png
-            sips -z 512 512   Assets/app-icon.png --out AppIcon.iconset/icon_256x256@2x.png
-            sips -z 512 512   Assets/app-icon.png --out AppIcon.iconset/icon_512x512.png
-            sips -z 1024 1024 Assets/app-icon.png --out AppIcon.iconset/icon_512x512@2x.png
-            iconutil -c icns AppIcon.iconset -o Assets/app-icon.icns
+            if [ ! -f "./Assets/app-icon.icns" ]; then
+              mkdir -p AppIcon.iconset
+              sips -z 16 16     Assets/app-icon.png --out AppIcon.iconset/icon_16x16.png
+              sips -z 32 32     Assets/app-icon.png --out AppIcon.iconset/icon_16x16@2x.png
+              sips -z 32 32     Assets/app-icon.png --out AppIcon.iconset/icon_32x32.png
+              sips -z 64 64     Assets/app-icon.png --out AppIcon.iconset/icon_32x32@2x.png
+              sips -z 128 128   Assets/app-icon.png --out AppIcon.iconset/icon_128x128.png
+              sips -z 256 256   Assets/app-icon.png --out AppIcon.iconset/icon_128x128@2x.png
+              sips -z 256 256   Assets/app-icon.png --out AppIcon.iconset/icon_256x256.png
+              sips -z 512 512   Assets/app-icon.png --out AppIcon.iconset/icon_256x256@2x.png
+              sips -z 512 512   Assets/app-icon.png --out AppIcon.iconset/icon_512x512.png
+              sips -z 1024 1024 Assets/app-icon.png --out AppIcon.iconset/icon_512x512@2x.png
+              iconutil -c icns AppIcon.iconset -o Assets/app-icon.icns
+            fi
             echo "ICON=./Assets/app-icon.icns" >> $GITHUB_ENV
             echo "BUNDLE_ID=--bundleId com.cypilu.ob" >> $GITHUB_ENV
           else
@@ -117,51 +145,11 @@ jobs:
           [ -f "OB-osx-Setup.pkg" ] && mv "OB-osx-Setup.pkg" "OB-${{ matrix.rid }}-Setup.pkg"
           cd ..
 
-      # 上传至内部服务器并清理旧版本
-      - name: Upload to Internal Server and Cleanup Old Versions
-        shell: bash
-        env:
-          SERVER_URL: "http://129.204.149.106:8080/releases/"
-          USERNAME: ${{ secrets.INTERNAL_SERVER_USERNAME }}
-          PASSWORD: ${{ secrets.INTERNAL_SERVER_PASSWORD }}
-          RID: ${{ matrix.rid }}
-          VERSION: ${{ github.ref_name }} # 包含 v 前缀
-        run: |
-          # 尝试获取服务器文件列表（兼容 BSD grep）
-          if curl -u "$USERNAME:$PASSWORD" -s -f "$SERVER_URL" > server_list.html; then
-            # 提取 href 中的文件名 (兼容所有平台)
-            grep -o 'href="[^"]*"' server_list.html | sed 's/href="//;s/"//' | grep "$RID" > server_files.txt || true
-          else
-            echo "Failed to list server files, skipping cleanup"
-            touch server_files.txt  # 创建空文件避免后续错误
-          fi
-
-          # 删除旧版本（版本号不同的文件）
-          while read file; do
-            if [ -n "$file" ]; then
-              # 提取文件名中的版本号 (例如 OB-1.2.3-win-x64.nupkg -> 1.2.3)
-              file_ver=$(echo "$file" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-              current_ver="${VERSION#v}"
-              if [ -n "$file_ver" ] && [ "$file_ver" != "$current_ver" ]; then
-                echo "Deleting old file: $file"
-                curl -u "$USERNAME:$PASSWORD" -X DELETE "${SERVER_URL}${file}" || echo "Failed to delete $file"
-              fi
-            fi
-          done < server_files.txt
-
-          # 上传本次构建的所有文件
-          for file in ./Releases/*; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              echo "Uploading $filename"
-              curl -u "$USERNAME:$PASSWORD" -T "$file" "${SERVER_URL}${filename}" || echo "Failed to upload $filename"
-            fi
-          done
-
       - name: List Release Directory
         run: ls -la ./Releases
         shell: bash
 
+      # ---------- 上传 GitHub Release ----------
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -177,6 +165,14 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------- 保存构建产物供后续上传到国内服务器 ----------
+      - name: Upload artifacts for CN server
+        uses: actions/upload-artifact@v4
+        with:
+          name: releases-${{ matrix.rid }}
+          path: ./Releases/*
+          retention-days: 1   # 只需保留一天，节省存储
 
   # 汇总作业：生成 version.json 并上传至内部服务器根目录
   update_version_json:
@@ -217,3 +213,64 @@ jobs:
           PASSWORD: ${{ secrets.INTERNAL_SERVER_PASSWORD }}
         run: |
           curl -u "$USERNAME:$PASSWORD" -T version.json "$SERVER_URL"
+
+  # 单独上传到国内服务器（不阻塞其他流程）
+  upload_to_cn:
+    needs: publish
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./Releases
+          # 不合并，保留每个 RID 的子目录
+
+      - name: Upload to Internal Server and Cleanup Old Versions
+        shell: bash
+        env:
+          SERVER_URL: "http://129.204.149.106:8080/releases/"
+          USERNAME: ${{ secrets.INTERNAL_SERVER_USERNAME }}
+          PASSWORD: ${{ secrets.INTERNAL_SERVER_PASSWORD }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          # 进入 Releases 目录，该目录下包含多个子目录：releases-win-x64, releases-osx-x64, ...
+          cd ./Releases
+          # 遍历所有子目录
+          for rid_dir in releases-*; do
+            if [ -d "$rid_dir" ]; then
+              cd "$rid_dir"
+              # 从目录名提取 rid（去掉 'releases-' 前缀）
+              RID="${rid_dir#releases-}"
+              echo "Processing RID: $RID"
+
+              # 获取服务器上该 rid 的文件列表
+              if curl -u "$USERNAME:$PASSWORD" -s -f "$SERVER_URL" > ../server_list.html; then
+                grep -o 'href="[^"]*"' ../server_list.html | sed 's/href="//;s/"//' | grep "$RID" > ../server_files.txt || true
+              else
+                echo "Failed to list server files for $RID, skipping cleanup"
+                touch ../server_files.txt
+              fi
+
+              # 删除旧版本（版本号不同的文件）
+              while read file; do
+                if [ -n "$file" ]; then
+                  file_ver=$(echo "$file" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                  current_ver="${VERSION#v}"
+                  if [ -n "$file_ver" ] && [ "$file_ver" != "$current_ver" ]; then
+                    echo "Deleting old file: $file"
+                    curl -u "$USERNAME:$PASSWORD" -X DELETE "${SERVER_URL}${file}" || echo "Failed to delete $file"
+                  fi
+                fi
+              done < ../server_files.txt
+
+              # 上传当前 rid 目录下的所有文件
+              for file in *; do
+                if [ -f "$file" ]; then
+                  echo "Uploading $file (RID: $RID)"
+                  curl -u "$USERNAME:$PASSWORD" -T "$file" "${SERVER_URL}${file}" || echo "Failed to upload $file"
+                fi
+              done
+
+              cd ..
+            fi
+          done

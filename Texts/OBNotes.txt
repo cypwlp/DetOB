@@ -6,3 +6,7 @@ git tag -a v1.0.0 -m "版本 v1.0.0 发布"
 git push origin v1.0.0
 
 做真正的差分更新
+
+macos用戶繞開限制：
+sudo xattr -rd com.apple.quarantine /Applications/OB.app
+codesign --force --deep --sign - /Applications/OB.app

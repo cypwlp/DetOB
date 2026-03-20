@@ -68,7 +68,7 @@ namespace OB.ViewModels.Dialogs
                 });
                 await tagProcess.WaitForExitAsync();
                 if (tagProcess.ExitCode != 0)
-                {
+                {  
                     string error = await tagProcess.StandardError.ReadToEndAsync();
                     Debug.WriteLine($"创建标签失败: {error}");
                     // 可在此显示错误对话框
