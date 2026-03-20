@@ -8,26 +8,20 @@
              FontFamily="Microsoft YaHei, SimHei, Segoe UI, Lucida Grande, Helvetica, Arial, sans-serif"
              x:DataType="dialogs:UpdateViewModel"
              x:Class="OB.Views.Dialogs.UpdateDialog">
-   
     <Border Background="{DynamicResource SystemRegionBrush}"
-            CornerRadius="12"
+            CornerRadius="12"  
             Padding="24">
         <Grid RowDefinitions="Auto, *, Auto">
-            <!-- 標題 -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,16">
                 <avalonia:MaterialIcon Kind="Update" Width="28" Height="28" Foreground="{DynamicResource SystemAccentColor}"/>
                 <TextBlock Text="發現新版本" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </StackPanel>
-            
-            <!-- 內容 -->
             <TextBlock Grid.Row="1"
                        Text="{Binding NewVersion, StringFormat='新版本 {0} 已經準備就緒...'}"
                        FontSize="14"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource SystemBaseHighColor}"
                        Opacity="0.8"/>
-            
-            <!-- 按鈕 -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,24,0,0">
                 <Button Content="暫時不要"
                         Command="{Binding CancelCommand}"

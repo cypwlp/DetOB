@@ -1,31 +1,115 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="225"
-             x:Class="OB.UploadDialog">
-<Grid>
-    <Grid.RowDefinitions>
-		<RowDefinition Height="180"></RowDefinition>
-        <RowDefinition></RowDefinition>
-    </Grid.RowDefinitions>
-	<StackPanel Grid.Row="0" Orientation="Vertical">
-		<StackPanel>
-            <TextBlock Text="�ļ���"/>
-            <TextBox></TextBox>
-        </StackPanel>
-        <StackPanel>
-                 <TextBlock Text="�����f��"/>
-            <TextBox></TextBox>
-        </StackPanel>
-        <StackPanel>
-        
-             <TextBlock Text="Ԕ���f��"/>
-            <TextBox></TextBox></StackPanel>
-    </StackPanel>
-    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="5">
-		<Button Content="�_�J" HorizontalAlignment="Right" Margin="250,0,10,0"></Button>
-        <Button Content="ȡ��"></Button>
-    </StackPanel>
-</Grid>
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
+             xmlns:dialogs="using:OB.ViewModels.Dialogs"
+             x:Class="OB.Views.Dialogs.UploadDialog"
+             x:DataType="dialogs:UploadViewModel">
+    <Border Background="{DynamicResource SystemRegionBrush}"
+            CornerRadius="16"
+            Padding="28"
+            BoxShadow="0 4 12 0 #20000000">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+              ColumnDefinitions="*"
+              HorizontalAlignment="Stretch">
+            
+            <!-- 标题 -->
+            <TextBlock Grid.Row="0"
+                       Text="发布新版本"
+                       FontSize="20"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,24"
+                       HorizontalAlignment="Center"/>
+
+            <!-- 版本输入卡片 -->
+            <Border Grid.Row="1"
+                    Background="{DynamicResource ThemeControlBackgroundBrush}"
+                    CornerRadius="12"
+                    Padding="16"
+                    Margin="0,0,0,16">
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Grid.Column="0"
+                               Text="版本"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"
+                               Width="80"/>
+                    <TextBox Grid.Column="1"
+                             Text="{Binding Version}"
+                             Watermark="例如 2.1.0"
+                             BorderThickness="0"
+                             Background="Transparent"/>
+                </Grid>
+            </Border>
+
+            <!-- 用户更新日志卡片 -->
+            <Border Grid.Row="2"
+                    Background="{DynamicResource ThemeControlBackgroundBrush}"
+                    CornerRadius="12"
+                    Padding="16"
+                    Margin="0,0,0,16">
+                <Grid RowDefinitions="Auto,*"
+                      ColumnDefinitions="Auto,*">
+                    <TextBlock Grid.Row="0" Grid.Column="0"
+                               Text="更新描述"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Width="80"/>
+                    <TextBox Grid.Row="0" Grid.Column="1"
+                             Text="{Binding UpdateLog}"
+                             Watermark="向用户展示的新功能、修复..."
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             MinHeight="80"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             Margin="0,0,0,0"/>
+                </Grid>
+            </Border>
+
+            <!-- 开发者变更日志卡片 -->
+            <Border Grid.Row="3"
+                    Background="{DynamicResource ThemeControlBackgroundBrush}"
+                    CornerRadius="12"
+                    Padding="16"
+                    Margin="0,0,0,24">
+                <Grid RowDefinitions="Auto,*"
+                      ColumnDefinitions="Auto,*">
+                    <TextBlock Grid.Row="0" Grid.Column="0"
+                               Text="开发者更改"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Width="80"/>
+                    <TextBox Grid.Row="0" Grid.Column="1"
+                             Text="{Binding Changelog}"
+                             Watermark="技术细节、内部变更..."
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             MinHeight="80"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             Margin="0,0,0,0"/>
+                </Grid>
+            </Border>
+
+            <!-- 按钮区域 -->
+            <StackPanel Grid.Row="4"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="12">
+                <Button Content="取消"
+                        Command="{Binding CancelCommand}"
+                        Classes="secondary"
+                        Padding="20,10"
+                        CornerRadius="8"/>
+                <Button Content="确认发布"
+                        Command="{Binding ConfirmCommand}"
+                        Classes="primary"
+                        Padding="20,10"
+                        CornerRadius="8"/>
+            </StackPanel>
+        </Grid>
+    </Border>
 </UserControl>

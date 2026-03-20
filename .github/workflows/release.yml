@@ -15,10 +15,10 @@ jobs:
           - os: windows-latest
             rid: win-x64
             executable: OB.exe
-          - os: macos-15-intel                 # Intel x64
+          - os: macos-15-intel
             rid: osx-x64
             executable: OB
-          - os: macos-latest             # Apple Silicon ARM64
+          - os: macos-latest
             rid: osx-arm64
             executable: OB
           - os: ubuntu-22.04
@@ -48,7 +48,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfuse2 desktop-file-utils libglib2.0-bin
 
-      # 平台專屬圖示轉換，並設定環境變數供後續步驟使用
+      # 平台专属图标转换
       - name: Prepare Icon and Platform Flags
         id: prepare
         shell: bash
@@ -73,7 +73,7 @@ jobs:
             iconutil -c icns AppIcon.iconset -o Assets/app-icon.icns
             echo "ICON=./Assets/app-icon.icns" >> $GITHUB_ENV
             echo "BUNDLE_ID=--bundleId com.cypilu.ob" >> $GITHUB_ENV
-          else  # Linux
+          else
             echo "ICON=./Assets/app-icon.png" >> $GITHUB_ENV
             echo "BUNDLE_ID=" >> $GITHUB_ENV
           fi
@@ -99,30 +99,56 @@ jobs:
             ${{ env.BUNDLE_ID }} \
             --outputDir "./Releases"
 
-      # macOS 的 Velopack 預設使用 "osx" 作為架構標籤，這裡改為正確的 RID
+      # macOS 重命名（保持与原有逻辑一致）
       - name: Rename macOS Artifacts
         if: runner.os == 'macOS'
         shell: bash
         run: |
           cd ./Releases
-          
-          # Rename the main artifacts with correct RID (nupkg, delta, etc.)
           for f in OB-*-osx-*; do
             if [ -f "$f" ]; then
               newname=$(echo "$f" | sed "s/-osx-/-${{ matrix.rid }}-/")
               mv "$f" "$newname"
             fi
           done
-          
-          # Rename RELEASES and json files
           [ -f "RELEASES-osx" ] && mv "RELEASES-osx" "RELEASES-${{ matrix.rid }}"
           [ -f "releases.osx.json" ] && mv "releases.osx.json" "releases.${{ matrix.rid }}.json"
-          
-          # Rename Portable.zip and Setup.pkg to include the RID
           [ -f "OB-osx-Portable.zip" ] && mv "OB-osx-Portable.zip" "OB-${{ matrix.rid }}-Portable.zip"
           [ -f "OB-osx-Setup.pkg" ] && mv "OB-osx-Setup.pkg" "OB-${{ matrix.rid }}-Setup.pkg"
-          
           cd ..
+
+      # 上传至内部服务器并清理旧版本
+      - name: Upload to Internal Server and Cleanup Old Versions
+        shell: bash
+        env:
+          SERVER_URL: "http://129.204.149.106:8080/releases/"
+          USERNAME: ${{ secrets.INTERNAL_SERVER_USERNAME }}
+          PASSWORD: ${{ secrets.INTERNAL_SERVER_PASSWORD }}
+          RID: ${{ matrix.rid }}
+          VERSION: ${{ github.ref_name }} # 包含 v 前缀
+        run: |
+          # 列出服务器上当前平台的所有文件
+          curl -u "$USERNAME:$PASSWORD" -s "$SERVER_URL" | \
+            grep -oP 'href="\K[^"]+' | grep "$RID" > server_files.txt
+
+          # 删除旧版本（版本号不同的文件）
+          while read file; do
+            # 提取文件名中的版本号 (假设格式: OB-1.2.3-win-x64.nupkg)
+            file_ver=$(echo "$file" | grep -oP '\d+\.\d+\.\d+')
+            # 当前版本号（去掉 v 前缀）
+            current_ver="${VERSION#v}"
+            if [ "$file_ver" != "$current_ver" ]; then
+              echo "Deleting old file: $file"
+              curl -u "$USERNAME:$PASSWORD" -X DELETE "${SERVER_URL}${file}"
+            fi
+          done < server_files.txt
+
+          # 上传本次构建的所有文件
+          for file in ./Releases/*; do
+            filename=$(basename "$file")
+            echo "Uploading $filename"
+            curl -u "$USERNAME:$PASSWORD" -T "$file" "${SERVER_URL}${filename}"
+          done
 
       - name: List Release Directory
         run: ls -la ./Releases
@@ -143,3 +169,43 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 汇总作业：生成 version.json 并上传至内部服务器根目录
+  update_version_json:
+    needs: publish
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Tag Message
+        id: tag_msg
+        run: |
+          git fetch --tags
+          TAG_MESSAGE=$(git tag -l --format='%(contents)' ${{ github.ref_name }})
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create version.json
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          UPDATE_LOG=$(echo "${{ steps.tag_msg.outputs.message }}" | head -n1)
+          CHANGELOG=$(echo "${{ steps.tag_msg.outputs.message }}" | tail -n +2)
+          jq -n \
+            --arg v "$VERSION" \
+            --arg ul "$UPDATE_LOG" \
+            --arg cl "$CHANGELOG" \
+            '{Version: $v, UpdateLog: $ul, Changelog: $cl}' > version.json
+          cat version.json
+
+      - name: Upload version.json to Internal Server
+        env:
+          SERVER_URL: "http://129.204.149.106:8080/version.json"
+          USERNAME: ${{ secrets.INTERNAL_SERVER_USERNAME }}
+          PASSWORD: ${{ secrets.INTERNAL_SERVER_PASSWORD }}
+        run: |
+          curl -u "$USERNAME:$PASSWORD" -T version.json "$SERVER_URL"

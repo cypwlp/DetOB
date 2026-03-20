@@ -63,7 +63,7 @@ namespace OB.ViewModels
         public DelegateCommand ToggleMenuCommand { get; }
         public DelegateCommand<LeftMenuItem> SelectMenuItemCommand { get; }
 
-
+        public DelegateCommand ShowUploadCommand { get; set; }
         public DelegateCommand ShowAboutCommand { get; set; }
         public MainViewModel(IRegionManager regionManager)
         {
@@ -83,6 +83,11 @@ namespace OB.ViewModels
                 var parameters = new DialogParameters();
                 var dialogService = Prism.Ioc.ContainerLocator.Container.Resolve<Prism.Dialogs.IDialogService>();
                 await dialogService.ShowDialogAsync("About", parameters);
+            });
+            ShowUploadCommand = new DelegateCommand(async () =>
+            { var parameters = new DialogParameters();
+                var dialogService = Prism.Ioc.ContainerLocator.Container.Resolve<Prism.Dialogs.IDialogService>();
+                await dialogService.ShowDialogAsync("UploadDialog", parameters);
             });
             _selectedMenuItem = MenuItems.FirstOrDefault();
         }

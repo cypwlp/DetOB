@@ -124,6 +124,12 @@
                     </MenuItem.Icon>
 
                 </MenuItem>
+              <MenuItem Header="上传" Command="{Binding ShowUploadCommand}">
+                    <MenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="Upload" Width="20" Height="20" />
+                    </MenuItem.Icon>
+
+                </MenuItem>
             </MenuFlyout>
         </Button.Flyout>
     </Button>
