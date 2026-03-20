@@ -109,8 +109,11 @@ jobs:
       - name: Publish Application
         run: dotnet publish -c Release --runtime ${{ matrix.rid }} --self-contained true -o ./publish
 
+      # 修复：添加 GITHUB_TOKEN 以避免速率限制
       - name: Sync Previous Releases (Delta Updates)
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           vpk download github --repoUrl https://github.com/${{ github.repository }} --outputDir ./Releases
 
@@ -172,7 +175,7 @@ jobs:
         with:
           name: releases-${{ matrix.rid }}
           path: ./Releases/*
-          retention-days: 1   # 只需保留一天，节省存储
+          retention-days: 1
 
   # 汇总作业：生成 version.json 并上传至内部服务器根目录
   update_version_json:
@@ -184,10 +187,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 修复：强制更新 tags，避免本地冲突
       - name: Get Tag Message
         id: tag_msg
         run: |
-          git fetch --tags
+          git fetch --tags --force
           TAG_MESSAGE=$(git tag -l --format='%(contents)' ${{ github.ref_name }})
           echo "message<<EOF" >> $GITHUB_OUTPUT
           echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
@@ -223,7 +227,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./Releases
-          # 不合并，保留每个 RID 的子目录
 
       - name: Upload to Internal Server and Cleanup Old Versions
         shell: bash
@@ -233,17 +236,13 @@ jobs:
           PASSWORD: ${{ secrets.INTERNAL_SERVER_PASSWORD }}
           VERSION: ${{ github.ref_name }}
         run: |
-          # 进入 Releases 目录，该目录下包含多个子目录：releases-win-x64, releases-osx-x64, ...
           cd ./Releases
-          # 遍历所有子目录
           for rid_dir in releases-*; do
             if [ -d "$rid_dir" ]; then
               cd "$rid_dir"
-              # 从目录名提取 rid（去掉 'releases-' 前缀）
               RID="${rid_dir#releases-}"
               echo "Processing RID: $RID"
 
-              # 获取服务器上该 rid 的文件列表
               if curl -u "$USERNAME:$PASSWORD" -s -f "$SERVER_URL" > ../server_list.html; then
                 grep -o 'href="[^"]*"' ../server_list.html | sed 's/href="//;s/"//' | grep "$RID" > ../server_files.txt || true
               else
@@ -251,7 +250,6 @@ jobs:
                 touch ../server_files.txt
               fi
 
-              # 删除旧版本（版本号不同的文件）
               while read file; do
                 if [ -n "$file" ]; then
                   file_ver=$(echo "$file" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
@@ -263,7 +261,6 @@ jobs:
                 fi
               done < ../server_files.txt
 
-              # 上传当前 rid 目录下的所有文件
               for file in *; do
                 if [ -f "$file" ]; then
                   echo "Uploading $file (RID: $RID)"
