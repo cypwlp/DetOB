@@ -127,27 +127,35 @@ jobs:
           RID: ${{ matrix.rid }}
           VERSION: ${{ github.ref_name }} # 包含 v 前缀
         run: |
-          # 列出服务器上当前平台的所有文件
-          curl -u "$USERNAME:$PASSWORD" -s "$SERVER_URL" | \
-            grep -oP 'href="\K[^"]+' | grep "$RID" > server_files.txt
+          # 尝试获取服务器文件列表（兼容 BSD grep）
+          if curl -u "$USERNAME:$PASSWORD" -s -f "$SERVER_URL" > server_list.html; then
+            # 提取 href 中的文件名 (兼容所有平台)
+            grep -o 'href="[^"]*"' server_list.html | sed 's/href="//;s/"//' | grep "$RID" > server_files.txt || true
+          else
+            echo "Failed to list server files, skipping cleanup"
+            touch server_files.txt  # 创建空文件避免后续错误
+          fi
 
           # 删除旧版本（版本号不同的文件）
           while read file; do
-            # 提取文件名中的版本号 (假设格式: OB-1.2.3-win-x64.nupkg)
-            file_ver=$(echo "$file" | grep -oP '\d+\.\d+\.\d+')
-            # 当前版本号（去掉 v 前缀）
-            current_ver="${VERSION#v}"
-            if [ "$file_ver" != "$current_ver" ]; then
-              echo "Deleting old file: $file"
-              curl -u "$USERNAME:$PASSWORD" -X DELETE "${SERVER_URL}${file}"
+            if [ -n "$file" ]; then
+              # 提取文件名中的版本号 (例如 OB-1.2.3-win-x64.nupkg -> 1.2.3)
+              file_ver=$(echo "$file" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+              current_ver="${VERSION#v}"
+              if [ -n "$file_ver" ] && [ "$file_ver" != "$current_ver" ]; then
+                echo "Deleting old file: $file"
+                curl -u "$USERNAME:$PASSWORD" -X DELETE "${SERVER_URL}${file}" || echo "Failed to delete $file"
+              fi
             fi
           done < server_files.txt
 
           # 上传本次构建的所有文件
           for file in ./Releases/*; do
-            filename=$(basename "$file")
-            echo "Uploading $filename"
-            curl -u "$USERNAME:$PASSWORD" -T "$file" "${SERVER_URL}${filename}"
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "Uploading $filename"
+              curl -u "$USERNAME:$PASSWORD" -T "$file" "${SERVER_URL}${filename}" || echo "Failed to upload $filename"
+            fi
           done
 
       - name: List Release Directory
